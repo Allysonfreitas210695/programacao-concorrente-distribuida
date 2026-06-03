@@ -1,0 +1,16 @@
+QUESTÃO 4 - Determinação do escalonamento padrão de laços for paralelos
+=========================================================================
+
+(a) Qual é o escalonamento padrão?
+
+O escalonamento padrão do OpenMP para laços `parallel for` é o STATIC com
+chunk size igual a ceil(n / num_threads). As iterações são divididas em blocos
+contíguos e distribuídas igualmente entre as threads em ordem antes da execução.
+Exemplo com 2 threads e 4 iterações:
+  Thread 0: Iterações 0 -- 1
+  Thread 1: Iterações 2 -- 3
+
+Isso é definido pelo padrão OpenMP como comportamento padrão (implementation-
+defined, mas static é o mais comum). O motivo é que o static minimiza overhead
+de escalonamento: a divisão é calculada uma vez antes do laço, sem necessidade
+de coordenação em tempo de execução.

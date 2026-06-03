@@ -1,0 +1,18 @@
+QUESTÃO 10 - Tokenizador thread-safe sem modificar a string de entrada
+=======================================================================
+
+Explicação:
+- A função `proximo_token` recebe a posição atual via ponteiro `pos`
+- Cada chamada atualiza `pos` para a próxima posição após o token
+- A string original não é modificada — apenas lida
+- Thread-safe porque todo o estado (pos, buffer) é local a cada chamada
+- Equivalente thread-safe ao strtok_r, mas sem modificar a entrada
+
+Por que strtok() não é thread-safe:
+- strtok() guarda estado interno (ponteiro estático) entre chamadas
+- Se duas threads chamam strtok() simultaneamente, elas corrompem esse estado
+- A solução é usar ponteiro pos local (na pilha de cada thread)
+
+Compilação:
+  gcc -fopenmp -o tokenizador_threadsafe tokenizador_threadsafe.c
+  ./tokenizador_threadsafe

@@ -1,0 +1,216 @@
+================================================================================
+RESUMO — OpenMP: parallel for + Escalonamentos
+Para tirar 10 na lista
+================================================================================
+
+
+────────────────────────────────────────────────────────────────────────────────
+1. #pragma omp parallel for
+────────────────────────────────────────────────────────────────────────────────
+
+O que faz:
+  Divide as iterações de um laço for entre as threads disponíveis.
+  Cada thread executa uma fatia do laço de forma independente.
+
+Sintaxe básica:
+  #pragma omp parallel for num_threads(4)
+  for (int i = 0; i < n; i++) {
+      a[i] = b[i] + c[i];
+  }
+
+Regra de ouro:
+  Só funciona corretamente se as iterações forem INDEPENDENTES entre si.
+  Se a[i] depende de a[i-1], NÃO dá para paralelizar diretamente.
+
+Cláusulas úteis:
+  num_threads(n)     → define quantas threads usar
+  reduction(op:var)  → combina resultados parciais (ex: soma, max)
+  private(var)       → cada thread tem sua cópia da variável
+  shared(var)        → todas as threads compartilham a variável (padrão)
+  schedule(tipo)     → define como as iterações são distribuídas (ver abaixo)
+
+
+────────────────────────────────────────────────────────────────────────────────
+2. ESCALONAMENTOS (schedule)
+────────────────────────────────────────────────────────────────────────────────
+
+Como usar:
+  #pragma omp parallel for schedule(static, 2)
+  for (int i = 0; i < n; i++) { ... }
+
+Ou via variável de ambiente (schedule(runtime)):
+  OMP_SCHEDULE="static,2" ./meu_programa
+
+
+┌─────────────┬──────────────────────────────────────────────────────────────┐
+│ Tipo        │ Como funciona                                                │
+├─────────────┼──────────────────────────────────────────────────────────────┤
+│ static      │ Divide as iterações em blocos iguais ANTES de executar.      │
+│             │ Padrão: bloco = ceil(n / threads).                           │
+│             │ Com chunk: static,2 → blocos de 2 em round-robin.            │
+│             │ Melhor quando: carga por iteração é uniforme.                │
+├─────────────┼──────────────────────────────────────────────────────────────┤
+│ dynamic     │ Cada thread pega um bloco novo quando termina o atual.       │
+│             │ Padrão: bloco de tamanho 1.                                  │
+│             │ Com chunk: dynamic,4 → pega 4 iterações por vez.             │
+│             │ Melhor quando: carga por iteração é variável/imprevisível.   │
+│             │ Custo: maior overhead de coordenação.                        │
+├─────────────┼──────────────────────────────────────────────────────────────┤
+│ guided      │ Começa com blocos grandes, vai diminuindo até o mínimo.      │
+│             │ Tamanho ≈ iterações_restantes / num_threads.                 │
+│             │ Equilibra carga sem tanto overhead quanto dynamic.           │
+│             │ Melhor quando: carga variável, mas quer menos overhead.      │
+├─────────────┼──────────────────────────────────────────────────────────────┤
+│ runtime     │ Usa o valor da variável OMP_SCHEDULE em tempo de execução.   │
+│             │ Permite testar diferentes escalonamentos sem recompilar.     │
+├─────────────┼──────────────────────────────────────────────────────────────┤
+│ auto        │ O compilador/runtime escolhe o melhor escalonamento.         │
+└─────────────┴──────────────────────────────────────────────────────────────┘
+
+
+────────────────────────────────────────────────────────────────────────────────
+3. EXEMPLO VISUAL — static com 4 threads e 8 iterações
+────────────────────────────────────────────────────────────────────────────────
+
+Iterações:   0  1  2  3  4  5  6  7
+
+static (sem chunk):
+  Thread 0 → 0, 1
+  Thread 1 → 2, 3
+  Thread 2 → 4, 5
+  Thread 3 → 6, 7
+
+static,1:
+  Thread 0 → 0, 4
+  Thread 1 → 1, 5
+  Thread 2 → 2, 6
+  Thread 3 → 3, 7
+
+dynamic,1:
+  Cada thread pega a próxima disponível → ordem não determinística
+  Thread 0 → 0, 3, 6  (exemplo)
+  Thread 1 → 1, 4, 7
+  Thread 2 → 2, 5
+
+guided (8 iter, 4 threads):
+  Rodada 1: blocos de 2  → threads 0,1,2,3 pegam 2 cada
+  Rodada 2: blocos de 1  → threads restantes pegam o que sobrou
+
+
+────────────────────────────────────────────────────────────────────────────────
+4. REDUCTION — o mais cobrado em lista
+────────────────────────────────────────────────────────────────────────────────
+
+Problema sem reduction (ERRADO — race condition):
+  int soma = 0;
+  #pragma omp parallel for
+  for (int i = 0; i < n; i++)
+      soma += a[i];   // várias threads escrevem ao mesmo tempo → resultado errado
+
+Correto com reduction:
+  int soma = 0;
+  #pragma omp parallel for reduction(+:soma)
+  for (int i = 0; i < n; i++)
+      soma += a[i];   // cada thread tem sua soma parcial, depois somam tudo
+
+Operadores válidos: +, *, -, &, |, ^, &&, ||, max, min
+
+
+────────────────────────────────────────────────────────────────────────────────
+5. PRIVATE vs SHARED
+────────────────────────────────────────────────────────────────────────────────
+
+shared  → uma cópia para todas as threads (padrão para variáveis externas)
+private → cada thread tem sua própria cópia (não inicializada!)
+firstprivate → private, mas inicializada com o valor original
+
+  int x = 10;
+  #pragma omp parallel for private(x)
+  for (int i = 0; i < n; i++) {
+      x = i * 2;   // x é privado: cada thread tem o seu
+      a[i] = x;
+  }
+  // x aqui fora NÃO foi alterado
+
+
+────────────────────────────────────────────────────────────────────────────────
+6. SINCRONIZAÇÃO RÁPIDA
+────────────────────────────────────────────────────────────────────────────────
+
+critical  → apenas uma thread por vez executa o bloco
+  #pragma omp critical
+  { soma += valor_local; }
+
+atomic    → operação atômica em uma única variável (mais rápido que critical)
+  #pragma omp atomic
+  soma += valor_local;
+
+barrier   → todas as threads esperam aqui antes de continuar
+  #pragma omp barrier
+
+single    → apenas uma thread executa o bloco (as outras esperam)
+  #pragma omp single
+  { printf("só uma thread imprime\n"); }
+
+
+────────────────────────────────────────────────────────────────────────────────
+7. CRONOMETRAGEM — omp_get_wtime()
+────────────────────────────────────────────────────────────────────────────────
+
+  double inicio = omp_get_wtime();
+
+  #pragma omp parallel for
+  for (...) { ... }
+
+  double fim = omp_get_wtime();
+  printf("Tempo: %f segundos\n", fim - inicio);
+
+
+────────────────────────────────────────────────────────────────────────────────
+8. DEPENDÊNCIA DE DADOS — quando NÃO dá para paralelizar
+────────────────────────────────────────────────────────────────────────────────
+
+NÃO paralelizável diretamente:
+  for (i = 1; i < n; i++)
+      a[i] = a[i-1] + i;   // a[i] depende de a[i-1]
+
+Solução: encontrar fórmula fechada (quando possível):
+  // a[i] = 0+1+2+...+i = i*(i+1)/2
+  #pragma omp parallel for
+  for (i = 0; i < n; i++)
+      a[i] = i * (i + 1) / 2;   // independente → paralelizável!
+
+
+────────────────────────────────────────────────────────────────────────────────
+9. FALSO COMPARTILHAMENTO (False Sharing)
+────────────────────────────────────────────────────────────────────────────────
+
+Acontece quando duas threads acessam variáveis DIFERENTES que estão na
+MESMA linha de cache (64 bytes = 8 doubles).
+
+Quando uma thread modifica sua variável, invalida a linha de cache da outra,
+forçando recarregamento — degrada muito o desempenho.
+
+Como evitar: garantir que variáveis de threads diferentes estejam separadas
+por pelo menos uma linha de cache, ou usar variáveis locais e somar no final.
+
+
+────────────────────────────────────────────────────────────────────────────────
+10. COLA RÁPIDA — O QUE CADA QUESTÃO TESTA
+────────────────────────────────────────────────────────────────────────────────
+
+Q1  → race condition sem critical (variável compartilhada sem proteção)
+Q2  → omp_get_wtime() para medir speedup
+Q3  → arredondamento de ponto flutuante muda com paralelismo
+Q4  → escalonamento padrão = static (blocos contíguos iguais)
+Q5  → eliminar dependência com fórmula fechada
+Q6  → schedule(runtime) + OMP_SCHEDULE para testar escalonamentos
+Q7  → atomic em variáveis diferentes = seções críticas independentes
+Q8  → falhas de cache: acesso sequencial bom, acesso com stride ruim
+Q9  → falso compartilhamento só ocorre em FRONTEIRAS entre regiões de threads
+Q10 → tokenizador thread-safe: estado local, string original intocada
+Q11 → histograma: histograma local por thread + critical só na soma final
+Q12 → Monte Carlo: rand_r() thread-safe, reduction para contar acertos
+Q13 → count sort: laço externo paralelizável, count privado, temp compartilhado
+
+================================================================================

@@ -1,0 +1,26 @@
+QUESTÃO 1 - omp_trap_1.c sem diretiva critical
+===============================================
+
+(a) Quantas threads e quantos trapézios são necessários antes que o resultado esteja incorreto?
+
+O resultado incorreto começa a aparecer com 2 ou mais threads e valores de n
+relativamente pequenos (por volta de n = 1.000 a 10.000 trapézios). Isso ocorre
+porque, sem a diretiva critical, múltiplas threads leem e escrevem na variável
+compartilhada `sum` simultaneamente sem sincronização, causando condição de corrida
+(race condition). Não há um valor fixo exato, pois o erro depende do escalonamento
+do sistema operacional, mas geralmente com 4+ threads e n >= 10.000 o erro é
+facilmente observável.
+
+(b) Como o aumento do número de trapézios influencia nas chances do resultado ser incorreto?
+
+Aumentar o número de trapézios (n) AUMENTA as chances de erro. Com mais iterações,
+há mais operações de leitura/escrita concorrentes na variável `sum`, aumentando a
+janela de tempo em que uma thread pode sobrescrever o valor calculado por outra.
+Quanto mais iterações, mais colisões de acesso ocorrem.
+
+(c) Como o aumento do número de threads influencia nas chances do resultado ser incorreto?
+
+Aumentar o número de threads também AUMENTA as chances de erro. Com mais threads
+competindo pelo acesso à variável `sum`, a probabilidade de duas ou mais threads
+lerem o mesmo valor antes de qualquer uma escrever de volta aumenta
+significativamente. Com muitas threads, o resultado pode estar completamente errado.

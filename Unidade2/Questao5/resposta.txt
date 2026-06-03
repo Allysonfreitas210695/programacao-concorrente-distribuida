@@ -1,0 +1,25 @@
+QUESTÃO 5 - Eliminando dependência no laço
+==========================================
+
+Laço original com dependência:
+  a[0] = 0;
+  for (i = 1; i < n; i++)
+      a[i] = a[i-1] + i;
+
+Análise: a[i] = a[i-1] + i é uma recorrência. Expandindo:
+  a[0] = 0
+  a[1] = 0 + 1 = 1
+  a[2] = 1 + 2 = 3
+  a[3] = 3 + 3 = 6
+  a[i] = 0 + 1 + 2 + ... + i = i*(i+1)/2
+
+Solução — eliminar a dependência com fórmula fechada:
+
+  #pragma omp parallel for
+  for (int i = 0; i < n; i++) {
+      a[i] = i * (i + 1) / 2;
+  }
+
+Justificativa: ao substituir a recorrência por sua forma fechada (soma de
+Gauss), cada a[i] passa a ser calculado independentemente, sem depender de
+a[i-1]. O laço se torna completamente paralelizável.

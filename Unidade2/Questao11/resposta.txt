@@ -1,0 +1,15 @@
+QUESTÃO 11 - Histograma paralelo com OpenMP
+===========================================
+
+Explicação da implementação:
+
+1. Cada thread aloca seu próprio histograma local (sem contenção)
+2. Cada thread conta os elementos de sua parcela do array
+3. A seção critical é usada apenas uma vez por thread para somar o
+   histograma local ao global — isso é muito mais eficiente que usar
+   critical ou atomic a cada incremento individual
+4. Essa abordagem evita falso compartilhamento e minimiza sincronização
+
+Compilação e execução:
+  gcc -fopenmp -o omp_histograma omp_histograma.c
+  ./omp_histograma 1000000 10 4

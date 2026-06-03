@@ -1,0 +1,20 @@
+QUESTÃO 12 (EXTRA) - Monte Carlo para estimar π
+================================================
+
+Explicação do método:
+- Lançamos dardos aleatórios num quadrado de lado 2 centrado na origem
+- Um círculo de raio 1 está inscrito nesse quadrado
+- A razão área_círculo/área_quadrado = π/4
+- Logo: π ≈ 4 * (dardos_no_círculo / total_de_dardos)
+- Quanto mais lançamentos, mais precisa é a estimativa
+
+Observações:
+- Com 10^9 lançamentos e 4 threads, a estimativa fica precisa até ~5 casas decimais
+- O speedup é próximo de linear pois não há comunicação durante os lançamentos
+- rand_r() é a versão thread-safe de rand(), usando semente local por thread
+- A cláusula reduction(+:qtd_no_circulo) garante soma correta das contagens locais
+- Usar long long é essencial pois 10^9 lançamentos ultrapassa o limite do int
+
+Compilação e execução:
+  gcc -fopenmp -o omp_monte_carlo_pi omp_monte_carlo_pi.c -lm
+  ./omp_monte_carlo_pi 1000000000 4

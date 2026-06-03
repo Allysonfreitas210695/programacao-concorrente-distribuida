@@ -1,0 +1,43 @@
+QUESTÃO 8 - Perfilamento de cache com omp_mat_vect_rand_split.c
+================================================================
+
+Contexto: multiplicação matriz-vetor, entradas k×(k×10^6), (k×10^3)×(k×10^3),
+(k×10^6)×k. Ferramenta: Valgrind (cachegrind).
+
+Compilação:
+  gcc -g -O2 -fopenmp -o omp_mat_vect omp_mat_vect_rand_split.c -lm
+  valgrind --tool=cachegrind ./omp_mat_vect
+
+(a) Falhas de escrita no cache L1:
+- k×(k×10^6): poucas linhas, vetor enorme -> muitas falhas ao escrever y[i]
+- (k×10^3)×(k×10^3): acesso sequencial moderado -> falhas moderadas
+- (k×10^6)×k: muitas linhas, vetor pequeno -> poucas falhas de escrita
+
+(b) Falhas de escrita no cache L2:
+- Seguem padrão similar ao L1, mas em menor quantidade (L2 é maior)
+- k×(k×10^6) apresenta mais falhas de L2
+
+(c) Maioria das falhas de escrita ocorre no acesso a y[i] (resultado).
+A entrada k×(k×10^6) apresenta mais falhas porque o vetor de entrada x é
+muito grande e não cabe no cache, forçando recarregamentos constantes.
+
+(d) Falhas de leitura de cache L1:
+- A entrada (k×10^6)×k gera mais falhas de leitura, pois com muitas linhas
+  o acesso ao vetor x (pequeno) é reutilizado, mas o acesso à matriz A é
+  sequencial por linhas, que é eficiente. Porém com poucas colunas, cada
+  linha da matriz é muito curta.
+- k×(k×10^6): uma linha enorme -> acesso sequencial, bom aproveitamento de cache
+
+(e) Falhas de leitura de cache L2:
+- Seguem tendência do L1 com valores menores
+
+(f) A maioria das falhas de leitura ocorre no acesso à matriz A.
+A entrada (k×10^3)×(k×10^3) (quadrada) tende a ter mais falhas balanceadas.
+A entrada k×(k×10^6) (linha por vetor enorme) tem mais falhas de leitura
+porque o vetor x não cabe no cache.
+
+(g) Desempenho sem perfilador:
+- Mais rápido: k×(k×10^6) ou (k×10^3)×(k×10^3) — acesso sequencial à memória
+- Mais lento: (k×10^6)×k — acesso com stride grande à memória (pula por colunas)
+As falhas de cache explicam diretamente: mais falhas = mais acessos à memória
+principal = execução mais lenta.

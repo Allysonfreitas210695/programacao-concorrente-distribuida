@@ -1,0 +1,29 @@
+QUESTÃO 9 - Falso compartilhamento na multiplicação matriz-vetor 8000×8000
+==========================================================================
+
+Contexto: linha de cache = 64 bytes = 8 doubles. Matriz 8000×8000.
+y[i] é calculado pela thread que processa a linha i da matriz.
+Com 4 threads: thread 0 -> y[0..1999], thread 1 -> y[2000..3999], etc.
+
+(a) Falso compartilhamento entre thread 0 e thread 2?
+
+Thread 0 acessa y[0] a y[1999].
+Thread 2 acessa y[4000] a y[5999].
+Uma linha de cache armazena 8 doubles consecutivos.
+y[1999] e y[4000] estão separados por 2001 posições -> em linhas de cache
+completamente diferentes. Portanto, NÃO há possibilidade de falso
+compartilhamento entre thread 0 e thread 2, pois suas regiões de y
+estão bem separadas na memória.
+
+(b) Falso compartilhamento entre thread 0 e thread 3?
+
+Thread 0 acessa y[0] a y[1999].
+Thread 3 acessa y[6000] a y[7999].
+Ainda mais separadas. NÃO há falso compartilhamento entre thread 0 e
+thread 3 pelo mesmo motivo: as regiões são disjuntas e distantes.
+
+Nota: falso compartilhamento seria possível apenas nas FRONTEIRAS entre
+regiões de threads adjacentes. Por exemplo, entre thread 0 (y[1999]) e
+thread 1 (y[2000]): y[1999] e y[2000] podem estar na mesma linha de cache
+(se 1999 não for múltiplo de 8), causando falso compartilhamento entre
+thread 0 e thread 1.

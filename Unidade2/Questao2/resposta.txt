@@ -1,0 +1,18 @@
+QUESTÃO 2 - omp_trap1.c com cronometragem omp_get_wtime()
+===========================================================
+
+(a) O que acontece ao comparar 1 thread vs 2 threads?
+
+Com 1 thread e n grande (ex: 100.000.000), o tempo é T1.
+Com 2 threads e o mesmo n, o tempo cai para aproximadamente T1/2.
+O speedup é próximo de 2x, demonstrando paralelismo efetivo na regra do trapézio,
+pois cada thread processa uma metade independente do intervalo sem necessidade
+de comunicação durante o cálculo.
+
+(b) Comparação com omp_trap2b.c:
+
+O omp_trap2b.c usa a diretiva `parallel for` com `reduction`, que é mais limpa
+e geralmente tem desempenho similar ou melhor porque o compilador pode otimizar
+o escalonamento das iterações automaticamente. A versão manual exige cuidado
+com os cálculos de local_a e local_b. O desempenho é equivalente para n grande,
+mas omp_trap2b.c é mais portável e legível.

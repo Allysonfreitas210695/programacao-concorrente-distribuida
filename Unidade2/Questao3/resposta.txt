@@ -1,0 +1,41 @@
+QUESTÃO 3 - Aritmética de ponto flutuante no Bleeblon
+======================================================
+
+Contexto: float armazena 3 dígitos decimais, registradores têm 4 dígitos,
+resultado é arredondado para 3 dígitos após cada operação.
+
+Array: float a[] = {4.0, 3.0, 3.0, 1000.0}
+
+(a) Código serial:
+
+Passo a passo:
+- sum = 0.0
+- i=0: sum = 0.0 + 4.0 = 4.00  -> arredonda para 4.00
+- i=1: sum = 4.00 + 3.0 = 7.00 -> arredonda para 7.00
+- i=2: sum = 7.00 + 3.0 = 10.0 -> arredonda para 10.0
+- i=3: sum = 10.0 + 1000.0 = 1010.0 -> arredonda para 1010 (3 dígitos sig.)
+
+Saída: sum = 1010.0
+
+Justificativa: como os valores pequenos são somados antes do 1000.0, eles
+acumulam corretamente antes do valor grande ser adicionado.
+
+(b) Código paralelo com 2 threads:
+
+Thread 0 processa i=0,1 (a[0]=4.0, a[1]=3.0):
+- local_sum0 = 0.0 + 4.0 = 4.00
+- local_sum0 = 4.00 + 3.0 = 7.00
+
+Thread 1 processa i=2,3 (a[2]=3.0, a[3]=1000.0):
+- local_sum1 = 0.0 + 3.0 = 3.00
+- local_sum1 = 3.00 + 1000.0 = 1003.0 -> arredonda para 1000 (apenas 3 dígitos!)
+
+Redução: sum = 7.00 + 1000 = 1007 -> com 4 dígitos no registrador -> arredonda para 1010.
+
+Saída: sum = 1010.0
+
+Obs: Neste caso específico o resultado é o mesmo, mas o valor intermediário
+local_sum1 perdeu o 3.0 (virou 1000 após arredondamento), o que poderia
+causar diferenças em outros cenários. Se a[2] fosse 6.0:
+serial daria 1013->1010, paralelo daria 1006->1010 vs 1010 — os resultados
+podem divergir dependendo dos valores.

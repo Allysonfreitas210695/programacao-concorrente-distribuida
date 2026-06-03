@@ -1,0 +1,22 @@
+QUESTÃO 6 - schedule(runtime) e determinação do escalonamento
+==============================================================
+
+Escalonamento padrão e guided:
+
+O escalonamento padrão (sem OMP_SCHEDULE definido) é tipicamente static,
+onde cada thread recebe um bloco contíguo de iterações de tamanho n/p.
+
+O escalonamento GUIDED funciona de forma decrescente:
+- Começa atribuindo blocos grandes (n / num_threads) para cada thread
+- A cada vez que uma thread pede mais trabalho, o bloco é reduzido
+  progressivamente (dividido pelo número de threads)
+- O tamanho mínimo do chunk é 1 (ou o chunk especificado)
+- Isso reduz o overhead de escalonamento no início (blocos grandes) e
+  melhora o balanceamento de carga no final (blocos pequenos)
+
+Uso da variável OMP_SCHEDULE para testar diferentes escalonamentos:
+  OMP_SCHEDULE="static"    -> blocos contíguos de tamanho n/p
+  OMP_SCHEDULE="static,2"  -> blocos de tamanho 2, distribuídos ciclicamente
+  OMP_SCHEDULE="dynamic"   -> cada thread pega 1 iteração por vez (balanceado)
+  OMP_SCHEDULE="dynamic,2" -> cada thread pega 2 iterações por vez
+  OMP_SCHEDULE="guided"    -> blocos decrescentes

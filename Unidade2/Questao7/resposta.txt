@@ -1,0 +1,19 @@
+QUESTÃO 7 - Diretivas atomic com diferentes variáveis
+======================================================
+
+Resposta sobre o comportamento:
+
+Como `minha_soma` é declarada DENTRO do bloco parallel, cada thread possui
+sua própria cópia privada da variável. Portanto, as diretivas `#pragma omp atomic`
+protegem variáveis DIFERENTES (uma por thread) e NÃO são tratadas como uma
+única seção crítica global.
+
+Resultado esperado: o tempo de execução com múltiplas threads deve ser
+aproximadamente igual ao tempo com 1 thread (ou até menor, pois o trabalho
+é feito em paralelo). Isso confirma que atualizações atômicas de variáveis
+diferentes são tratadas como seções críticas independentes, permitindo
+execução simultânea.
+
+Se fossem todas a mesma variável (compartilhada), o tempo com múltiplas
+threads seria muito maior que com 1 thread, pois as threads serializariam
+no acesso à variável compartilhada.
