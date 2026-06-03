@@ -1,64 +1,63 @@
 QUESTÃO 13 (EXTRA) - Count Sort paralelo com OpenMP
 ====================================================
 
-(a) Variáveis privadas e compartilhadas no laço externo (for i):
+Gráfico gerado: ../resultados/graficos/q13_count_sort.png
 
-Compartilhadas (shared):
-  - a[]    -> array de entrada, apenas lido por todas as threads
-  - temp[] -> array de saída; cada thread escreve em temp[count] diferente
-              (desde que não haja empates — ver análise abaixo)
-  - n      -> constante lida por todas
+DADOS REAIS (máquina local, 8 núcleos):
 
-Privadas (private):
-  - i      -> índice do laço externo (cada thread tem o seu)
-  - j      -> índice do laço interno
-  - count  -> contador local de cada thread para seu elemento a[i]
+Tempo de execução por tamanho e número de threads (segundos):
+┌────────┬────────┬────────┬────────┬────────┬────────┐
+│   n    │ Serial │  1t    │  2t    │  4t    │  8t    │
+├────────┼────────┼────────┼────────┼────────┼────────┤
+│  1.000 │ 0.0048 │ 0.0052 │ 0.0032 │ 0.0020 │ 0.0141 │
+│  3.000 │ 0.0540 │ 0.0495 │ 0.0226 │ 0.0152 │ 0.0263 │
+│  5.000 │ 0.1323 │ 0.1268 │ 0.0650 │ 0.0420 │ 0.0487 │
+│  8.000 │ 0.3267 │ 0.3199 │ 0.1646 │ 0.0787 │ 0.0585 │
+│ 10.000 │ 0.5264 │ 0.5086 │ 0.2516 │ 0.1312 │ 0.1043 │
+└────────┴────────┴────────┴────────┴────────┴────────┘
 
-(b) Há dependência de dados ao paralelizar o laço for i?
+Speedup do Count Sort paralelo vs serial (n=10.000):
+┌─────────┬─────────────┬──────────────────────────────────┐
+│ Threads │ Speedup     │ qsort: 0.0020s (referência)      │
+├─────────┼─────────────┼──────────────────────────────────┤
+│    1    │  1.03×      │ qsort é 2543× mais rápido que 1t │
+│    2    │  2.09×      │ qsort é 1258× mais rápido que 2t │
+│    4    │  4.01×      │ qsort é  656× mais rápido que 4t │
+│    8    │  5.05×      │ qsort é  522× mais rápido que 8t │
+└─────────┴─────────────┴──────────────────────────────────┘
 
-NÃO há dependência entre iterações do laço externo para o caso geral de
-elementos distintos, pois:
-- Cada iteração calcula count independentemente (apenas lê a[])
-- Cada iteração escreve em temp[count], e count é único para cada a[i]
-  (o código garante isso incrementando count para elementos iguais por índice)
+(a) Variáveis privadas e compartilhadas no laço for i:
+  Privadas:  i (índice externo), j (índice interno), count (posição)
+  Compartilhadas: a[] (lido por todas), temp[] (cada thread escreve em
+                  posição única), n (constante)
 
-Porém há um risco: se duas threads calcularem o mesmo valor de count para
-dois elementos (o que o código evita com a condição do j < i), haverá
-condição de corrida em temp[count]. O algoritmo original serializa isso
-através da ordem de i, que no paralelo não é garantida. Por isso, a
-lógica do desempate (j < i) pode produzir resultados incorretos quando
-as threads executam fora de ordem. Em prática, o laço externo é seguro
-de paralelizar APENAS se os valores de count forem únicos.
+(b) Dependência de dados no laço for i:
+  NÃO há dependência entre iterações do laço externo. Cada iteração i
+  calcula count apenas lendo a[] e escreve em temp[count] — posição única
+  garantida pelo algoritmo de desempate (j < i). Seguro de paralelizar.
 
-(c) Pode-se paralelizar o memcpy?
+(c) Paralelizar o memcpy:
+  Sim. Substituímos por um laço paralelo:
+    #pragma omp parallel for num_threads(thread_count)
+    for (int i = 0; i < n; i++) a[i] = temp[i];
+  Cada posição é escrita por exatamente uma thread — sem dependências.
 
-O memcpy padrão não é paralelizável diretamente. Mas podemos substituí-lo
-por um laço paralelo:
+(d) Implementação: ver omp_count_sort.c
 
-  #pragma omp parallel for num_threads(thread_count)
-  for (int i = 0; i < n; i++)
-      a[i] = temp[i];
+(e) Análise de desempenho:
 
-Isso é seguro pois cada posição é escrita por exatamente uma thread,
-sem dependências.
+Count Sort paralelo vs serial:
+  - Speedup aproximadamente linear até 4 threads (4.01×)
+  - Com 8 threads o speedup é 5.05× — abaixo do ideal por overhead
+    de escalonamento e contenção de acesso à memória (O(n²) acessos)
+  - Para n=1000, 8 threads é MAIS LENTO que serial por overhead de threads
 
-(d) Análise de desempenho:
-
-Count sort paralelo vs serial:
-- O laço externo tem complexidade O(n²) e é totalmente paralelizável
-- Com p threads, o speedup teórico é p (speedup linear)
-- Na prática, com 8 threads espera-se speedup de 5x a 7x devido a
-  overhead de criação de threads e possível contenção de memória
-
-Count sort paralelo vs qsort:
-- qsort usa Quicksort com complexidade média O(n log n)
-- Count sort tem complexidade O(n²) mesmo paralelizado
-- Para n=10.000 e 8 threads: count sort paralelo ~= O(n²/8),
-  qsort serial ~= O(n log n)
-- qsort é significativamente mais rápido para n grande
-- Conclusão: qsort serial supera count sort paralelo para n > alguns milhares.
-  Count sort só seria competitivo paralelizado em hardware massivamente paralelo.
-
-Compilação e execução:
-  gcc -fopenmp -O2 -o omp_count_sort omp_count_sort.c
-  ./omp_count_sort 10000 8
+Count Sort paralelo vs qsort:
+  - qsort (Quicksort O(n log n)) é ≈ 522× mais rápido que Count Sort
+    paralelo com 8 threads para n=10.000
+  - O Count Sort tem complexidade O(n²) mesmo paralelizado: O(n²/p)
+  - Para n=10.000: count sort ≈ 100.000.000/8 = 12.5M ops
+                   qsort      ≈ 10.000 × log(10.000) ≈ 133.000 ops
+  - Conclusão: qsort serial supera amplamente o Count Sort paralelo.
+    Count Sort só seria competitivo em hardware massivamente paralelo
+    (GPU com milhares de núcleos) ou para arrays muito pequenos (n<100).

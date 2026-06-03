@@ -1,15 +1,32 @@
 QUESTÃO 11 - Histograma paralelo com OpenMP
 ===========================================
 
-Explicação da implementação:
+Gráfico gerado: ../resultados/graficos/q11_histograma_speedup.png
 
-1. Cada thread aloca seu próprio histograma local (sem contenção)
-2. Cada thread conta os elementos de sua parcela do array
-3. A seção critical é usada apenas uma vez por thread para somar o
-   histograma local ao global — isso é muito mais eficiente que usar
-   critical ou atomic a cada incremento individual
-4. Essa abordagem evita falso compartilhamento e minimiza sincronização
+DADOS REAIS (n=10.000.000 elementos, 20 buckets, máquina local 8 núcleos):
+┌─────────┬────────────┬──────────┬────────────┐
+│ Threads │ Tempo (ms) │ Speedup  │ Eficiência │
+├─────────┼────────────┼──────────┼────────────┤
+│    1    │   12.1 ms  │  1.00×   │   100%     │
+│    2    │    7.8 ms  │  1.55×   │    77%     │
+│    4    │    5.7 ms  │  2.12×   │    53%     │
+│    8    │    8.8 ms  │  1.38×   │    17%     │
+└─────────┴────────────┴──────────┴────────────┘
 
-Compilação e execução:
-  gcc -fopenmp -o omp_histograma omp_histograma.c
-  ./omp_histograma 1000000 10 4
+ANÁLISE:
+- Com 2 threads: speedup de 1.55× — bom ganho com pouco overhead.
+- Com 4 threads: speedup de 2.12× — melhor resultado absoluto.
+- Com 8 threads: tempo PIORA em relação a 4 threads (8.8ms > 5.7ms).
+  Isso ocorre porque a operação é rápida (memória dominante) e o overhead
+  de criar/sincronizar 8 threads supera o ganho com paralelismo.
+  Também há contenção na seção critical de redução dos histogramas locais.
+
+ESTRATÉGIA IMPLEMENTADA (histogramas locais):
+  Cada thread aloca seu próprio hist_local[], conta elementos sem contenção,
+  e ao final usa #pragma omp critical apenas uma vez para somar ao global.
+  Isso é muito mais eficiente do que usar critical ou atomic a cada
+  incremento individual (que serializaria todo o laço).
+
+CONCLUSÃO: para n=10M com 20 buckets, 4 threads é o ponto ótimo nesta
+máquina. O histograma paralelo escala bem até esse ponto; acima disso,
+o overhead de sincronização e a baixa intensidade aritmética limitam o ganho.

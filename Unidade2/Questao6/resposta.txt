@@ -1,22 +1,73 @@
 QUESTÃO 6 - schedule(runtime) e determinação do escalonamento
 ==============================================================
 
-Escalonamento padrão e guided:
+Gráfico gerado: ../resultados/graficos/q6_schedules.png
 
-O escalonamento padrão (sem OMP_SCHEDULE definido) é tipicamente static,
-onde cada thread recebe um bloco contíguo de iterações de tamanho n/p.
+SAÍDA REAL DO PROGRAMA (n=20 trapézios, 4 threads, intervalo [0,1]):
 
-O escalonamento GUIDED funciona de forma decrescente:
-- Começa atribuindo blocos grandes (n / num_threads) para cada thread
-- A cada vez que uma thread pede mais trabalho, o bloco é reduzido
-  progressivamente (dividido pelo número de threads)
-- O tamanho mínimo do chunk é 1 (ou o chunk especificado)
-- Isso reduz o overhead de escalonamento no início (blocos grandes) e
-  melhora o balanceamento de carga no final (blocos pequenos)
+--- schedule(static) ---
+Thread 0: 1 2 3 4 5
+Thread 1: 6 7 8 9 10
+Thread 2: 11 12 13 14 15
+Thread 3: 16 17 18 19
+→ chunk = 5 (blocos contíguos de tamanho ceil(19/4))
 
-Uso da variável OMP_SCHEDULE para testar diferentes escalonamentos:
-  OMP_SCHEDULE="static"    -> blocos contíguos de tamanho n/p
-  OMP_SCHEDULE="static,2"  -> blocos de tamanho 2, distribuídos ciclicamente
-  OMP_SCHEDULE="dynamic"   -> cada thread pega 1 iteração por vez (balanceado)
-  OMP_SCHEDULE="dynamic,2" -> cada thread pega 2 iterações por vez
-  OMP_SCHEDULE="guided"    -> blocos decrescentes
+--- schedule(static,2) ---
+Thread 0: 1 2 9 10 17 18
+Thread 1: 3 4 11 12 19
+Thread 2: 5 6 13 14
+Thread 3: 7 8 15 16
+→ chunk = 2, distribuição cíclica: thread t recebe chunks 0, p, 2p, ...
+
+--- schedule(dynamic) ---
+Thread 0: 2 5 8 12 17
+Thread 1: 1 7 9 10 13 14 16 18
+Thread 2: 3 4 6 11 15 19
+Thread 3: (nenhuma)
+→ chunk = 1, alocação sob demanda — distribuição irregular, depende do SO
+
+--- schedule(dynamic,2) ---
+Thread 0: (nenhuma)
+Thread 1: 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18
+Thread 2: 1 2 19
+Thread 3: (nenhuma)
+→ chunk = 2, mas uma thread pegou quase tudo — overhead de sincronização
+  pode concentrar iterações em threads rápidas (ou que acordam primeiro)
+
+--- schedule(guided) ---
+Thread 0: 10 11 12 19
+Thread 1: 1 2 3 4 5 13 14 15 16 17
+Thread 2: 6 7 8 9 18
+Thread 3: (nenhuma)
+→ blocos decrescentes: começa com bloco grande (~n/p = 5), diminui
+
+ANÁLISE COMPARATIVA:
+┌─────────────┬───────────────────────────────────────────────────────┐
+│ Schedule    │ Comportamento                                          │
+├─────────────┼───────────────────────────────────────────────────────┤
+│ static      │ Blocos contíguos fixos, menor overhead, ideal para    │
+│             │ iterações de custo uniforme                            │
+├─────────────┼───────────────────────────────────────────────────────┤
+│ static,2    │ Blocos de tamanho 2 em round-robin, melhor balanceio  │
+│             │ que static puro quando há variação moderada no custo  │
+├─────────────┼───────────────────────────────────────────────────────┤
+│ dynamic     │ Sob demanda, cada thread pega 1 iter por vez.         │
+│             │ Ótimo para custo irregular, mas overhead alto         │
+├─────────────┼───────────────────────────────────────────────────────┤
+│ dynamic,2   │ Igual ao dynamic mas com chunks de 2.                 │
+│             │ Reduz overhead vs dynamic puro                        │
+├─────────────┼───────────────────────────────────────────────────────┤
+│ guided      │ Blocos decrescentes: reduz overhead no início         │
+│             │ (blocos grandes) e balanceia no final (blocos pequenos)│
+└─────────────┴───────────────────────────────────────────────────────┘
+
+ESCALONAMENTO PADRÃO NO SISTEMA: static (confirmado pela Q4).
+
+COMO O GUIDED É DETERMINADO:
+1. Tamanho inicial do chunk = iterações_restantes / num_threads
+2. Uma thread pega esse chunk e o executa
+3. O próximo chunk = nova_contagem_restante / num_threads
+4. O processo se repete até acabarem as iterações
+5. O chunk mínimo é 1 (ou o valor especificado em guided,k)
+Resultado: blocos grandes no início (baixo overhead de escalonamento)
+e blocos pequenos no final (melhor balanceamento de carga).

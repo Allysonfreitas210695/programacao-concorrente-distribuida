@@ -1,20 +1,44 @@
 QUESTÃO 12 (EXTRA) - Monte Carlo para estimar π
 ================================================
 
-Explicação do método:
-- Lançamos dardos aleatórios num quadrado de lado 2 centrado na origem
-- Um círculo de raio 1 está inscrito nesse quadrado
-- A razão área_círculo/área_quadrado = π/4
-- Logo: π ≈ 4 * (dardos_no_círculo / total_de_dardos)
-- Quanto mais lançamentos, mais precisa é a estimativa
+Gráfico gerado: ../resultados/graficos/q12_montecarlo_pi.png
 
-Observações:
-- Com 10^9 lançamentos e 4 threads, a estimativa fica precisa até ~5 casas decimais
-- O speedup é próximo de linear pois não há comunicação durante os lançamentos
-- rand_r() é a versão thread-safe de rand(), usando semente local por thread
-- A cláusula reduction(+:qtd_no_circulo) garante soma correta das contagens locais
-- Usar long long é essencial pois 10^9 lançamentos ultrapassa o limite do int
+DADOS REAIS (máquina local, 8 núcleos):
 
-Compilação e execução:
-  gcc -fopenmp -o omp_monte_carlo_pi omp_monte_carlo_pi.c -lm
-  ./omp_monte_carlo_pi 1000000000 4
+Speedup (n = 100 milhões de lançamentos):
+┌─────────┬───────────┬──────────┬───────────────────┐
+│ Threads │ Tempo (s) │ Speedup  │ Estimativa de π   │
+├─────────┼───────────┼──────────┼───────────────────┤
+│    1    │  1.8945 s │  1.00×   │  3.14151844       │
+│    2    │  0.9761 s │  1.94×   │  3.14158504       │
+│    4    │  0.5586 s │  3.39×   │  3.14160376       │
+│    8    │  0.3771 s │  5.02×   │  3.14152308       │
+└─────────┴───────────┴──────────┴───────────────────┘
+
+Precisão vs. número de lançamentos (4 threads):
+┌──────────────┬─────────────────┬────────────────────┐
+│ Lançamentos  │ Estimativa de π │ Erro absoluto      │
+├──────────────┼─────────────────┼────────────────────┤
+│   1.000.000  │  3.14353600     │  0.00194335        │
+│  10.000.000  │  3.14190720     │  0.00031455        │
+│ 100.000.000  │  3.14160376     │  0.00001111        │
+└──────────────┴─────────────────┴────────────────────┘
+
+ANÁLISE DO SPEEDUP:
+- Speedup próximo do linear: 8 threads → 5.02× (vs. ideal 8×).
+- O algoritmo é "embarrassingly parallel" — cada thread gera seus próprios
+  números aleatórios com rand_r(&semente) usando semente privada, sem
+  nenhuma comunicação durante o lançamento dos dardos.
+- O speedup não atinge 8× devido ao overhead de criação de threads e ao
+  custo de rand_r (geração de números pseudo-aleatórios é sequencial por thread).
+
+ANÁLISE DA PRECISÃO:
+- O erro cai aproximadamente com a raiz quadrada dos lançamentos (lei dos
+  grandes números): 10× mais lançamentos → ~3× mais preciso.
+- Com 100M lançamentos o erro é < 0.00002 (~5 casas decimais corretas).
+- As estimativas variam levemente entre threads porque cada thread usa
+  semente diferente — sem repetição nem correlação entre sequências.
+
+CONCLUSÃO: Monte Carlo paralelo com OpenMP oferece speedup quase linear
+para n grande. Para estimativas práticas de π, 100M lançamentos com
+4-8 threads oferece boa precisão em menos de 0.6 segundos.
