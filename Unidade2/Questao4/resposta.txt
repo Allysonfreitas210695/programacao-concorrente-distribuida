@@ -3,33 +3,42 @@ QUESTÃO 4 - Determinação do escalonamento padrão de laços for paralelos
 
 Gráfico gerado: ../resultados/graficos/q4_escalonamento_static.png
 
-SAÍDA REAL DO PROGRAMA (máquina local):
+========================================================
+COMPILAÇÃO E EXECUÇÃO
+========================================================
 
---- 8 iterações, 2 threads ---
-Thread 0: Iterações 0 -- 3
-Thread 1: Iterações 4 -- 7
+Compilar:
+  $ gcc -fopenmp -o omp_escalonamento omp_escalonamento.c -lm
 
---- 8 iterações, 4 threads ---
-Thread 0: Iterações 0 -- 1
-Thread 1: Iterações 2 -- 3
-Thread 2: Iterações 4 -- 5
-Thread 3: Iterações 6 -- 7
+Uso: ./omp_escalonamento <num_iteracoes> <num_threads>
 
---- 16 iterações, 4 threads ---
-Thread 0: Iterações 0 -- 3
-Thread 1: Iterações 4 -- 7
-Thread 2: Iterações 8 -- 11
-Thread 3: Iterações 12 -- 15
+Execuções realizadas:
 
---- 32 iterações, 8 threads ---
-Thread 0: Iterações 0 -- 3
-Thread 1: Iterações 4 -- 7
-Thread 2: Iterações 8 -- 11
-Thread 3: Iterações 12 -- 15
-Thread 4: Iterações 16 -- 19
-Thread 5: Iterações 20 -- 23
-Thread 6: Iterações 24 -- 27
-Thread 7: Iterações 28 -- 31
+  $ ./omp_escalonamento 20 4
+  Thread 0: Iterações 0 -- 4
+  Thread 1: Iterações 5 -- 9
+  Thread 2: Iterações 10 -- 14
+  Thread 3: Iterações 15 -- 19
+
+  $ ./omp_escalonamento 20 2
+  Thread 0: Iterações 0 -- 9
+  Thread 1: Iterações 10 -- 19
+
+  $ ./omp_escalonamento 16 4
+  Thread 0: Iterações 0 -- 3
+  Thread 1: Iterações 4 -- 7
+  Thread 2: Iterações 8 -- 11
+  Thread 3: Iterações 12 -- 15
+
+  $ ./omp_escalonamento 8 4
+  Thread 0: Iterações 0 -- 1
+  Thread 1: Iterações 2 -- 3
+  Thread 2: Iterações 4 -- 5
+  Thread 3: Iterações 6 -- 7
+
+========================================================
+ANÁLISE DOS RESULTADOS
+========================================================
 
 (a) Qual é o escalonamento padrão?
 
@@ -37,13 +46,13 @@ O escalonamento padrão confirmado pela execução é STATIC com
 chunk = ceil(n / num_threads).
 
 Evidência direta dos resultados:
-  - 8 iters / 2 threads → chunk = 4  (cada thread recebe 4 iterações contíguas)
-  - 8 iters / 4 threads → chunk = 2  (cada thread recebe 2 iterações contíguas)
-  - 16 iters / 4 threads → chunk = 4 (blocos de 4 contíguos)
-  - 32 iters / 8 threads → chunk = 4 (blocos de 4 contíguos)
+  - 20 iters / 4 threads → chunk = 5  (blocos de 5 contíguos)
+  - 20 iters / 2 threads → chunk = 10 (blocos de 10 contíguos)
+  - 16 iters / 4 threads → chunk = 4  (blocos de 4 contíguos)
+  - 8  iters / 4 threads → chunk = 2  (blocos de 2 contíguos)
 
 Padrão: thread t recebe as iterações [t*chunk .. (t+1)*chunk - 1].
-As iterações são contíguas, nunca intercaladas — isso é STATIC puro.
+As iterações são CONTÍGUAS, nunca intercaladas — isso é STATIC puro.
 
 POR QUE O PADRÃO É STATIC?
 O escalonamento STATIC divide o trabalho ANTES da execução, calculando
@@ -51,3 +60,7 @@ uma única vez quais iterações cada thread vai processar. Isso elimina
 todo o overhead de coordenação em tempo de execução. Para laços com
 custo uniforme por iteração (como a maioria dos científicos), é a
 escolha ótima e por isso foi adotado como padrão pelo OpenMP.
+
+REGRA GERAL CONFIRMADA:
+  chunk = ceil(n / p)   onde p = número de threads
+  thread t executa: [t × chunk, min((t+1) × chunk, n) - 1]

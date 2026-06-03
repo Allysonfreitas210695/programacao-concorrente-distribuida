@@ -3,39 +3,79 @@ QUESTÃO 7 - Diretivas atomic com diferentes variáveis
 
 Gráfico gerado: ../resultados/graficos/q7_atomic_privado.png
 
-DADOS REAIS (n = 10.000.000, máquina local 8 núcleos):
+========================================================
+COMPILAÇÃO E EXECUÇÃO
+========================================================
+
+Compilar:
+  $ gcc -fopenmp -o omp_atomic_test omp_atomic_test.c -lm
+
+Uso: ./omp_atomic_test <n> <num_threads>
+  <n>           = número de iterações do laço
+  <num_threads> = número de threads para o TESTE 2
+
+Execuções realizadas (n = 10.000.000):
+
+  $ ./omp_atomic_test 10000000 1
+  1 thread: 0.5539 segundos
+  1 threads: 0.3795 segundos
+
+  $ ./omp_atomic_test 10000000 2
+  1 thread: 0.3272 segundos
+  2 threads: 0.3388 segundos
+
+  $ ./omp_atomic_test 10000000 4
+  1 thread: 0.3642 segundos
+  4 threads: 0.5066 segundos
+
+  $ ./omp_atomic_test 10000000 8
+  1 thread: 0.3303 segundos
+  8 threads: 0.6940 segundos
+
+========================================================
+TABELA COMPARATIVA (dados reais, máquina local 8 núcleos)
+========================================================
+
 ┌─────────┬──────────────────┬──────────────────┬──────────────────────┐
-│ Threads │ Baseline (1t)    │ Tempo com N threads│ Razão (Nt / 1t)    │
+│ Threads │ Baseline (1t)    │ Tempo com N thr.  │ Razão (Nt / 1t)     │
 ├─────────┼──────────────────┼──────────────────┼──────────────────────┤
-│    1    │   0.3185 s       │   0.3110 s        │    0.98× (≈ igual)  │
-│    2    │   0.3212 s       │   0.3301 s        │    1.03× (≈ igual)  │
-│    4    │   0.3518 s       │   0.4294 s        │    1.22× (leve aum.)│
-│    8    │   0.2958 s       │   0.6130 s        │    2.07× (dobrou)   │
+│    1    │   0.5539 s       │   0.3795 s        │    0.69× (mais ráp.)│
+│    2    │   0.3272 s       │   0.3388 s        │    1.04× (≈ igual)  │
+│    4    │   0.3642 s       │   0.5066 s        │    1.39× (leve aum.)│
+│    8    │   0.3303 s       │   0.6940 s        │    2.10× (dobrou)   │
 └─────────┴──────────────────┴──────────────────┴──────────────────────┘
 
-INTERPRETAÇÃO DOS RESULTADOS:
+========================================================
+INTERPRETAÇÃO DOS RESULTADOS
+========================================================
 
 Com minha_soma declarada DENTRO do bloco parallel, cada thread tem sua
-própria cópia privada. O #pragma omp atomic protege variáveis DIFERENTES
-(uma por thread) — portanto NÃO forma uma seção crítica global.
+própria cópia privada (variável na pilha da thread). O #pragma omp atomic
+protege variáveis DIFERENTES (uma por thread) — portanto NÃO forma uma
+seção crítica global.
 
 O tempo com N threads cresce porque o TRABALHO TOTAL cresce:
-  - 1 thread:  1 × n = 10M operações de sin()
-  - 2 threads: 2 × n = 20M operações de sin()
-  - 4 threads: 4 × n = 40M operações de sin()
-  - 8 threads: 8 × n = 80M operações de sin()
+  - 1 thread:  1 × n = 10M iterações de sin()
+  - 2 threads: 2 × n = 20M iterações de sin()  (todas em paralelo)
+  - 4 threads: 4 × n = 40M iterações de sin()  (todas em paralelo)
+  - 8 threads: 8 × n = 80M iterações de sin()  (todas em paralelo)
 
 Cada thread executa o loop COMPLETO (sem dividir), então o trabalho
 total é proporcional ao número de threads. Mesmo assim, como o atomic
 protege variáveis independentes, todas as threads executam em PARALELO
 real, sem serialização.
 
-PROVA: se atomic formasse UMA seção crítica global, o tempo com 8 threads
-seria ~8× maior que com 1 thread (serialização total). Mas o resultado
-real mostra apenas ~2×, confirmando que atomic em variáveis diferentes
-são seções críticas INDEPENDENTES e permitem execução simultânea.
+PROVA: se atomic formasse UMA seção crítica global, o tempo com 8
+threads seria ~8× maior que com 1 thread (serialização total). Mas o
+resultado real mostra apenas ~2× — confirmando que atomic em variáveis
+diferentes são seções críticas INDEPENDENTES e permitem execução
+simultânea.
+
+O overhead de ~2× com 8 threads ocorre por contenção em cache (8
+threads calculando sin() em paralelo disputam UCP e cache L3), não
+por serialização do atomic.
 
 RESPOSTA À QUESTÃO: SIM, a implementação OpenMP PERMITE execução
 simultânea de atualizações atômicas para variáveis diferentes. Cada
-#pragma omp atomic protege apenas a sua variável específica — não existe
-uma trava global compartilhada entre elas.
+#pragma omp atomic protege apenas a sua variável específica — não
+existe uma trava global compartilhada entre elas.

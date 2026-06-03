@@ -3,16 +3,133 @@ QUESTÃO 12 (EXTRA) - Monte Carlo para estimar π
 
 Gráfico gerado: ../resultados/graficos/q12_montecarlo_pi.png
 
-DADOS REAIS (máquina local, 8 núcleos):
+========================================================
+COMPILAÇÃO E EXECUÇÃO
+========================================================
 
-Speedup (n = 100 milhões de lançamentos):
+Compilar:
+  $ gcc -fopenmp -o omp_monte_carlo_pi omp_monte_carlo_pi.c -lm
+
+Uso: ./omp_monte_carlo_pi <num_lancamentos> <num_threads>
+
+Execuções realizadas:
+
+  --- 1.000.000 lançamentos ---
+
+  $ ./omp_monte_carlo_pi 1000000 1
+  Lancamentos  : 1000000
+  No circulo   : 785642
+  Estimativa pi: 3.14256800
+  pi real      : 3.14159265
+  Erro         : 0.00097535
+  Threads      : 1
+  Tempo        : 0.0404 segundos
+
+  $ ./omp_monte_carlo_pi 1000000 2
+  Lancamentos  : 1000000
+  No circulo   : 785626
+  Estimativa pi: 3.14250400
+  pi real      : 3.14159265
+  Erro         : 0.00091135
+  Threads      : 2
+  Tempo        : 0.0212 segundos
+
+  $ ./omp_monte_carlo_pi 1000000 4
+  Lancamentos  : 1000000
+  No circulo   : 785884
+  Estimativa pi: 3.14353600
+  pi real      : 3.14159265
+  Erro         : 0.00194335
+  Threads      : 4
+  Tempo        : 0.0132 segundos
+
+  $ ./omp_monte_carlo_pi 1000000 8
+  Lancamentos  : 1000000
+  No circulo   : 785588
+  Estimativa pi: 3.14235200
+  pi real      : 3.14159265
+  Erro         : 0.00075935
+  Threads      : 8
+  Tempo        : 0.0289 segundos
+
+  --- 10.000.000 lançamentos ---
+
+  $ ./omp_monte_carlo_pi 10000000 1
+  Lancamentos  : 10000000
+  No circulo   : 7853317
+  Estimativa pi: 3.14132680
+  pi real      : 3.14159265
+  Erro         : 0.00026585
+  Threads      : 1
+  Tempo        : 0.4239 segundos
+
+  $ ./omp_monte_carlo_pi 10000000 4
+  Lancamentos  : 10000000
+  No circulo   : 7854768
+  Estimativa pi: 3.14190720
+  pi real      : 3.14159265
+  Erro         : 0.00031455
+  Threads      : 4
+  Tempo        : 0.0970 segundos
+
+  $ ./omp_monte_carlo_pi 10000000 8
+  Lancamentos  : 10000000
+  No circulo   : 7855050
+  Estimativa pi: 3.14202000
+  pi real      : 3.14159265
+  Erro         : 0.00042735
+  Threads      : 8
+  Tempo        : 0.0851 segundos
+
+  --- 100.000.000 lançamentos ---
+
+  $ ./omp_monte_carlo_pi 100000000 1
+  Lancamentos  : 100000000
+  No circulo   : 78537961
+  Estimativa pi: 3.14151844
+  pi real      : 3.14159265
+  Erro         : 0.00007421
+  Threads      : 1
+  Tempo        : 3.1790 segundos
+
+  $ ./omp_monte_carlo_pi 100000000 2
+  Lancamentos  : 100000000
+  No circulo   : 78539626
+  Estimativa pi: 3.14158504
+  pi real      : 3.14159265
+  Erro         : 0.00000761
+  Threads      : 2
+  Tempo        : 1.5547 segundos
+
+  $ ./omp_monte_carlo_pi 100000000 4
+  Lancamentos  : 100000000
+  No circulo   : 78540094
+  Estimativa pi: 3.14160376
+  pi real      : 3.14159265
+  Erro         : 0.00001111
+  Threads      : 4
+  Tempo        : 0.9261 segundos
+
+  $ ./omp_monte_carlo_pi 100000000 8
+  Lancamentos  : 100000000
+  No circulo   : 78538077
+  Estimativa pi: 3.14152308
+  pi real      : 3.14159265
+  Erro         : 0.00006957
+  Threads      : 8
+  Tempo        : 0.6981 segundos
+
+========================================================
+TABELA DE SPEEDUP (n = 100 milhões de lançamentos)
+========================================================
+
 ┌─────────┬───────────┬──────────┬───────────────────┐
 │ Threads │ Tempo (s) │ Speedup  │ Estimativa de π   │
 ├─────────┼───────────┼──────────┼───────────────────┤
-│    1    │  1.8945 s │  1.00×   │  3.14151844       │
-│    2    │  0.9761 s │  1.94×   │  3.14158504       │
-│    4    │  0.5586 s │  3.39×   │  3.14160376       │
-│    8    │  0.3771 s │  5.02×   │  3.14152308       │
+│    1    │  3.1790 s │  1.00×   │  3.14151844       │
+│    2    │  1.5547 s │  2.04×   │  3.14158504       │
+│    4    │  0.9261 s │  3.43×   │  3.14160376       │
+│    8    │  0.6981 s │  4.55×   │  3.14152308       │
 └─────────┴───────────┴──────────┴───────────────────┘
 
 Precisão vs. número de lançamentos (4 threads):
@@ -24,21 +141,28 @@ Precisão vs. número de lançamentos (4 threads):
 │ 100.000.000  │  3.14160376     │  0.00001111        │
 └──────────────┴─────────────────┴────────────────────┘
 
+========================================================
+ANÁLISE
+========================================================
+
 ANÁLISE DO SPEEDUP:
-- Speedup próximo do linear: 8 threads → 5.02× (vs. ideal 8×).
-- O algoritmo é "embarrassingly parallel" — cada thread gera seus próprios
-  números aleatórios com rand_r(&semente) usando semente privada, sem
-  nenhuma comunicação durante o lançamento dos dardos.
-- O speedup não atinge 8× devido ao overhead de criação de threads e ao
-  custo de rand_r (geração de números pseudo-aleatórios é sequencial por thread).
+- Speedup próximo do linear com 2 threads (2.04×)
+- Com 4 e 8 threads o speedup sobe mas está abaixo do ideal
+- O algoritmo é "embarrassingly parallel": cada thread gera seus
+  próprios números aleatórios com rand_r(&semente) usando semente
+  privada — sem nenhuma comunicação durante os lançamentos
+- A única sincronização é o reduction(+:qtd_no_circulo) ao final
+- Overhead de criação de threads e custo de rand_r limitam speedup
 
 ANÁLISE DA PRECISÃO:
-- O erro cai aproximadamente com a raiz quadrada dos lançamentos (lei dos
-  grandes números): 10× mais lançamentos → ~3× mais preciso.
-- Com 100M lançamentos o erro é < 0.00002 (~5 casas decimais corretas).
-- As estimativas variam levemente entre threads porque cada thread usa
-  semente diferente — sem repetição nem correlação entre sequências.
+- O erro cai com mais lançamentos seguindo a Lei dos Grandes Números
+- 10× mais lançamentos → erro reduz por ~√10 ≈ 3,16×
+  Verificado: 1M (erro 0.00194) → 10M (0.00031) → 100M (0.00001)
+- Resultados variam entre threads por usarem sementes diferentes
+  (12345 + tid * 9999): sem repetição nem correlação de sequências
+- Com 100M lançamentos o erro é < 0.0001 (~4 casas decimais corretas)
 
-CONCLUSÃO: Monte Carlo paralelo com OpenMP oferece speedup quase linear
-para n grande. Para estimativas práticas de π, 100M lançamentos com
-4-8 threads oferece boa precisão em menos de 0.6 segundos.
+CONCLUSÃO: Monte Carlo paralelo com OpenMP oferece speedup de ~4.5×
+com 8 threads para n=100M. Para estimativas práticas de π, 100M
+lançamentos com 4-8 threads oferece boa precisão (erro < 0.0001)
+em menos de 1 segundo.

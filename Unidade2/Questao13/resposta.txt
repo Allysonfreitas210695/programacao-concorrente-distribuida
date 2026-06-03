@@ -3,28 +3,111 @@ QUESTÃO 13 (EXTRA) - Count Sort paralelo com OpenMP
 
 Gráfico gerado: ../resultados/graficos/q13_count_sort.png
 
-DADOS REAIS (máquina local, 8 núcleos):
+========================================================
+COMPILAÇÃO E EXECUÇÃO
+========================================================
+
+Compilar:
+  $ gcc -fopenmp -o omp_count_sort omp_count_sort.c -lm
+
+Uso: ./omp_count_sort <n> <num_threads>
+  <n>           = tamanho do array a ser ordenado
+  <num_threads> = número de threads OpenMP
+
+Execuções realizadas:
+
+  --- n = 1000 ---
+
+  $ ./omp_count_sort 1000 1
+  Count sort serial  : 0.0246 segundos
+  Count sort paralelo: 0.0273 segundos (1 threads)
+  qsort (serial)     : 0.0004 segundos
+  Resultado paralelo CORRETO
+
+  $ ./omp_count_sort 1000 4
+  Count sort serial  : 0.0228 segundos
+  Count sort paralelo: 0.0091 segundos (4 threads)
+  qsort (serial)     : 0.0004 segundos
+  Resultado paralelo CORRETO
+
+  $ ./omp_count_sort 1000 8
+  Count sort serial  : 0.0251 segundos
+  Count sort paralelo: 0.0446 segundos (8 threads)
+  qsort (serial)     : 0.0004 segundos
+  Resultado paralelo CORRETO
+
+  --- n = 5000 ---
+
+  $ ./omp_count_sort 5000 1
+  Count sort serial  : 0.3767 segundos
+  Count sort paralelo: 0.2662 segundos (1 threads)
+  qsort (serial)     : 0.0011 segundos
+  Resultado paralelo CORRETO
+
+  $ ./omp_count_sort 5000 4
+  Count sort serial  : 0.2440 segundos
+  Count sort paralelo: 0.0630 segundos (4 threads)
+  qsort (serial)     : 0.0020 segundos
+  Resultado paralelo CORRETO
+
+  $ ./omp_count_sort 5000 8
+  Count sort serial  : 0.2538 segundos
+  Count sort paralelo: 0.0828 segundos (8 threads)
+  qsort (serial)     : 0.0011 segundos
+  Resultado paralelo CORRETO
+
+  --- n = 10000 ---
+
+  $ ./omp_count_sort 10000 1
+  Count sort serial  : 1.0353 segundos
+  Count sort paralelo: 1.0261 segundos (1 threads)
+  qsort (serial)     : 0.0021 segundos
+  Resultado paralelo CORRETO
+
+  $ ./omp_count_sort 10000 2
+  Count sort serial  : 1.1207 segundos
+  Count sort paralelo: 0.5222 segundos (2 threads)
+  qsort (serial)     : 0.0027 segundos
+  Resultado paralelo CORRETO
+
+  $ ./omp_count_sort 10000 4
+  Count sort serial  : 1.0364 segundos
+  Count sort paralelo: 0.2610 segundos (4 threads)
+  qsort (serial)     : 0.0019 segundos
+  Resultado paralelo CORRETO
+
+  $ ./omp_count_sort 10000 8
+  Count sort serial  : 1.0169 segundos
+  Count sort paralelo: 0.4196 segundos (8 threads)
+  qsort (serial)     : 0.0123 segundos
+  Resultado paralelo CORRETO
+
+========================================================
+TABELA DE SPEEDUP (dados reais, máquina local 8 núcleos)
+========================================================
 
 Tempo de execução por tamanho e número de threads (segundos):
 ┌────────┬────────┬────────┬────────┬────────┬────────┐
 │   n    │ Serial │  1t    │  2t    │  4t    │  8t    │
 ├────────┼────────┼────────┼────────┼────────┼────────┤
-│  1.000 │ 0.0048 │ 0.0052 │ 0.0032 │ 0.0020 │ 0.0141 │
-│  3.000 │ 0.0540 │ 0.0495 │ 0.0226 │ 0.0152 │ 0.0263 │
-│  5.000 │ 0.1323 │ 0.1268 │ 0.0650 │ 0.0420 │ 0.0487 │
-│  8.000 │ 0.3267 │ 0.3199 │ 0.1646 │ 0.0787 │ 0.0585 │
-│ 10.000 │ 0.5264 │ 0.5086 │ 0.2516 │ 0.1312 │ 0.1043 │
+│  1.000 │ 0.0246 │ 0.0273 │   -    │ 0.0091 │ 0.0446 │
+│  5.000 │ 0.3767 │ 0.2662 │   -    │ 0.0630 │ 0.0828 │
+│ 10.000 │ 1.0353 │ 1.0261 │ 0.5222 │ 0.2610 │ 0.4196 │
 └────────┴────────┴────────┴────────┴────────┴────────┘
 
 Speedup do Count Sort paralelo vs serial (n=10.000):
 ┌─────────┬─────────────┬──────────────────────────────────┐
-│ Threads │ Speedup     │ qsort: 0.0020s (referência)      │
+│ Threads │ Speedup     │ qsort: 0.0021s (referência)      │
 ├─────────┼─────────────┼──────────────────────────────────┤
-│    1    │  1.03×      │ qsort é 2543× mais rápido que 1t │
-│    2    │  2.09×      │ qsort é 1258× mais rápido que 2t │
-│    4    │  4.01×      │ qsort é  656× mais rápido que 4t │
-│    8    │  5.05×      │ qsort é  522× mais rápido que 8t │
+│    1    │  1.01×      │ qsort é  493× mais rápido que 1t │
+│    2    │  1.98×      │ qsort é  249× mais rápido que 2t │
+│    4    │  3.97×      │ qsort é  124× mais rápido que 4t │
+│    8    │  2.42×      │ qsort é  200× mais rápido que 8t │
 └─────────┴─────────────┴──────────────────────────────────┘
+
+========================================================
+RESPOSTAS ÀS PERGUNTAS
+========================================================
 
 (a) Variáveis privadas e compartilhadas no laço for i:
   Privadas:  i (índice externo), j (índice interno), count (posição)
@@ -33,8 +116,9 @@ Speedup do Count Sort paralelo vs serial (n=10.000):
 
 (b) Dependência de dados no laço for i:
   NÃO há dependência entre iterações do laço externo. Cada iteração i
-  calcula count apenas lendo a[] e escreve em temp[count] — posição única
-  garantida pelo algoritmo de desempate (j < i). Seguro de paralelizar.
+  calcula count apenas lendo a[] e escreve em temp[count] — posição
+  única garantida pelo algoritmo de desempate (j < i). Seguro de
+  paralelizar.
 
 (c) Paralelizar o memcpy:
   Sim. Substituímos por um laço paralelo:
@@ -47,17 +131,27 @@ Speedup do Count Sort paralelo vs serial (n=10.000):
 (e) Análise de desempenho:
 
 Count Sort paralelo vs serial:
-  - Speedup aproximadamente linear até 4 threads (4.01×)
-  - Com 8 threads o speedup é 5.05× — abaixo do ideal por overhead
-    de escalonamento e contenção de acesso à memória (O(n²) acessos)
-  - Para n=1000, 8 threads é MAIS LENTO que serial por overhead de threads
+  - 1 thread: tempo ≈ serial (overhead mínimo de OpenMP)
+  - 2 threads: speedup de 1.98× — quase linear
+  - 4 threads: speedup de 3.97× — excelente, próximo do ideal
+  - 8 threads: speedup de 2.42× — PIOR que 4 threads!
+    Razão: n=10000 é pequeno → overhead de 8 threads supera o ganho
+    O algoritmo é O(n²): com n=10000 há 100M comparações, mas com
+    8 threads o overhead de escalonamento e contenção de cache
+    prejudica o desempenho vs. 4 threads
 
 Count Sort paralelo vs qsort:
-  - qsort (Quicksort O(n log n)) é ≈ 522× mais rápido que Count Sort
-    paralelo com 8 threads para n=10.000
+  - qsort (Quicksort O(n log n)) é ≈ 124× mais rápido que Count Sort
+    paralelo com 4 threads para n=10.000
   - O Count Sort tem complexidade O(n²) mesmo paralelizado: O(n²/p)
-  - Para n=10.000: count sort ≈ 100.000.000/8 = 12.5M ops
-                   qsort      ≈ 10.000 × log(10.000) ≈ 133.000 ops
-  - Conclusão: qsort serial supera amplamente o Count Sort paralelo.
-    Count Sort só seria competitivo em hardware massivamente paralelo
-    (GPU com milhares de núcleos) ou para arrays muito pequenos (n<100).
+  - Para n=10.000:
+      count sort ≈ 10.000² / 4 = 25.000.000 operações
+      qsort      ≈ 10.000 × log₂(10.000) ≈ 132.877 operações
+  - A complexidade algorítmica domina completamente qualquer ganho
+    de paralelismo
+
+CONCLUSÃO: qsort serial supera amplamente o Count Sort paralelo.
+Count Sort só seria competitivo em hardware massivamente paralelo
+(GPU com milhares de núcleos) ou para arrays muito pequenos (n<100).
+O aprendizado principal é que paralelizar um algoritmo ruim não o
+torna melhor que um algoritmo bom serial.

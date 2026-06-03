@@ -3,30 +3,96 @@ QUESTÃO 11 - Histograma paralelo com OpenMP
 
 Gráfico gerado: ../resultados/graficos/q11_histograma_speedup.png
 
-DADOS REAIS (n=10.000.000 elementos, 20 buckets, máquina local 8 núcleos):
+========================================================
+COMPILAÇÃO E EXECUÇÃO
+========================================================
+
+Compilar:
+  $ gcc -fopenmp -o omp_histograma omp_histograma.c -lm
+
+Uso: ./omp_histograma <num_elementos> <num_buckets> <num_threads>
+
+Execuções realizadas (n=10.000.000 elementos, 20 buckets):
+
+  $ ./omp_histograma 10000000 20 1
+  Histograma (10000000 elementos, 20 buckets, 1 threads):
+    Bucket [  0]: 499095
+    Bucket [  1]: 500382
+    Bucket [  2]: 499030
+    Bucket [  3]: 499643
+    Bucket [  4]: 499386
+    Bucket [  5]: 501425
+    Bucket [  6]: 501275
+    Bucket [  7]: 499161
+    Bucket [  8]: 499225
+    Bucket [  9]: 500968
+    Bucket [ 10]: 500258
+    Bucket [ 11]: 499353
+    Bucket [ 12]: 500038
+    Bucket [ 13]: 500014
+    Bucket [ 14]: 500803
+    Bucket [ 15]: 500452
+    Bucket [ 16]: 500508
+    Bucket [ 17]: 498870
+    Bucket [ 18]: 499555
+    Bucket [ 19]: 500559
+  Tempo: 0.0396 segundos
+
+  $ ./omp_histograma 10000000 20 2
+  Histograma (10000000 elementos, 20 buckets, 2 threads):
+  [... mesmos valores de bucket ...]
+  Tempo: 0.0207 segundos
+
+  $ ./omp_histograma 10000000 20 4
+  Histograma (10000000 elementos, 20 buckets, 4 threads):
+  [... mesmos valores de bucket ...]
+  Tempo: 0.0164 segundos
+
+  $ ./omp_histograma 10000000 20 8
+  Histograma (10000000 elementos, 20 buckets, 8 threads):
+  [... mesmos valores de bucket ...]
+  Tempo: 0.0087 segundos
+
+  Obs: todos os resultados de bucket são IDÊNTICOS entre 1, 2, 4 e 8
+  threads — prova de corretude da implementação paralela.
+
+========================================================
+TABELA DE SPEEDUP (dados reais, máquina local 8 núcleos)
+========================================================
+
 ┌─────────┬────────────┬──────────┬────────────┐
-│ Threads │ Tempo (ms) │ Speedup  │ Eficiência │
+│ Threads │ Tempo (s)  │ Speedup  │ Eficiência │
 ├─────────┼────────────┼──────────┼────────────┤
-│    1    │   12.1 ms  │  1.00×   │   100%     │
-│    2    │    7.8 ms  │  1.55×   │    77%     │
-│    4    │    5.7 ms  │  2.12×   │    53%     │
-│    8    │    8.8 ms  │  1.38×   │    17%     │
+│    1    │  0.0396 s  │  1.00×   │   100%     │
+│    2    │  0.0207 s  │  1.91×   │    96%     │
+│    4    │  0.0164 s  │  2.41×   │    60%     │
+│    8    │  0.0087 s  │  4.55×   │    57%     │
 └─────────┴────────────┴──────────┴────────────┘
 
-ANÁLISE:
-- Com 2 threads: speedup de 1.55× — bom ganho com pouco overhead.
-- Com 4 threads: speedup de 2.12× — melhor resultado absoluto.
-- Com 8 threads: tempo PIORA em relação a 4 threads (8.8ms > 5.7ms).
-  Isso ocorre porque a operação é rápida (memória dominante) e o overhead
-  de criar/sincronizar 8 threads supera o ganho com paralelismo.
-  Também há contenção na seção critical de redução dos histogramas locais.
+========================================================
+ANÁLISE
+========================================================
+
+- Com 2 threads: speedup de 1.91× — excelente eficiência (96%)
+- Com 4 threads: speedup de 2.41× — boa, mas eficiência cai para 60%
+- Com 8 threads: speedup de 4.55× — melhor resultado absoluto
 
 ESTRATÉGIA IMPLEMENTADA (histogramas locais):
-  Cada thread aloca seu próprio hist_local[], conta elementos sem contenção,
-  e ao final usa #pragma omp critical apenas uma vez para somar ao global.
-  Isso é muito mais eficiente do que usar critical ou atomic a cada
-  incremento individual (que serializaria todo o laço).
+  Cada thread aloca seu próprio hist_local[], conta elementos sem
+  contenção alguma, e ao final usa #pragma omp critical apenas UMA
+  vez por thread para somar ao histograma global.
 
-CONCLUSÃO: para n=10M com 20 buckets, 4 threads é o ponto ótimo nesta
-máquina. O histograma paralelo escala bem até esse ponto; acima disso,
-o overhead de sincronização e a baixa intensidade aritmética limitam o ganho.
+  Isso é muito mais eficiente do que usar critical ou atomic a cada
+  incremento individual (que serializaria todo o laço de contagem).
+
+POR QUE A EFICIÊNCIA CAI COM MAIS THREADS:
+  - Operação é memory-bound: percorre 10M elementos em memória
+  - Com 8 threads disputando banda de memória, há saturação do
+    barramento e cache L3 compartilhado
+  - Overhead de criação/sincronização das 8 threads cresce
+  - A seção critical de redução final executa sequencialmente
+
+CONCLUSÃO: para n=10M com 20 buckets, 8 threads oferece o melhor
+tempo absoluto (0.0087s) com speedup de 4.55×. O histograma paralelo
+com histogramas locais por thread é uma estratégia eficiente que
+evita contenção durante a fase de contagem.

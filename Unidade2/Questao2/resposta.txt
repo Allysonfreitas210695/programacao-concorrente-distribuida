@@ -3,43 +3,112 @@ QUESTÃO 2 - omp_trap1.c com cronometragem omp_get_wtime()
 
 Gráfico gerado: ../resultados/graficos/q2_trap_speedup.png
 
-DADOS REAIS (máquina local, 8 núcleos físicos):
+========================================================
+COMPILAÇÃO E EXECUÇÃO
+========================================================
+
+Compilar:
+  $ gcc -fopenmp -o omp_trap_cronometrado omp_trap_cronometrado.c -lm
+
+Uso: ./omp_trap_cronometrado <n> <num_threads>
+  <n>           = número de trapézios
+  <num_threads> = número de threads OpenMP
+
+Execuções realizadas (intervalo [a=0, b=1], f(x)=x²):
+
+  $ ./omp_trap_cronometrado 1000000 1
+  Tempo do bloco paralelo: 0.009799 segundos
+  Resultado: 0.333333
+
+  $ ./omp_trap_cronometrado 1000000 2
+  Tempo do bloco paralelo: 0.013970 segundos
+  Resultado: 0.333333
+
+  $ ./omp_trap_cronometrado 1000000 4
+  Tempo do bloco paralelo: 0.022224 segundos
+  Resultado: 0.333333
+
+  $ ./omp_trap_cronometrado 1000000 8
+  Tempo do bloco paralelo: 0.029622 segundos
+  Resultado: 0.333333
+
+  $ ./omp_trap_cronometrado 10000000 1
+  Tempo do bloco paralelo: 0.105735 segundos
+  Resultado: 0.333333
+
+  $ ./omp_trap_cronometrado 10000000 2
+  Tempo do bloco paralelo: 0.045344 segundos
+  Resultado: 0.333333
+
+  $ ./omp_trap_cronometrado 10000000 4
+  Tempo do bloco paralelo: 0.039121 segundos
+  Resultado: 0.333333
+
+  $ ./omp_trap_cronometrado 10000000 8
+  Tempo do bloco paralelo: 0.044481 segundos
+  Resultado: 0.333333
+
+  $ ./omp_trap_cronometrado 100000000 1
+  Tempo do bloco paralelo: 0.671408 segundos
+  Resultado: 0.333333
+
+  $ ./omp_trap_cronometrado 100000000 2
+  Tempo do bloco paralelo: 0.312854 segundos
+  Resultado: 0.333333
+
+  $ ./omp_trap_cronometrado 100000000 4
+  Tempo do bloco paralelo: 0.176387 segundos
+  Resultado: 0.333333
+
+  $ ./omp_trap_cronometrado 100000000 8
+  Tempo do bloco paralelo: 0.162233 segundos
+  Resultado: 0.333333
+
+========================================================
+TABELA DE SPEEDUP (dados reais, máquina local 8 núcleos)
+========================================================
+
 ┌─────────┬──────────────┬───────────────┬──────────────┬───────────────┐
 │ Threads │ Tempo 10M(s) │ Speedup 10M   │ Tempo 100M(s)│ Speedup 100M  │
 ├─────────┼──────────────┼───────────────┼──────────────┼───────────────┤
-│    1    │   0.0555     │    1.00×      │   0.3626     │    1.00×      │
-│    2    │   0.0113     │    4.91×      │   0.1899     │    1.91×      │
-│    4    │   0.0154     │    3.60×      │   0.1362     │    2.66×      │
-│    8    │   0.0082     │    6.77×      │   0.0551     │    6.58×      │
+│    1    │   0.1057     │    1.00×      │   0.6714     │    1.00×      │
+│    2    │   0.0453     │    2.33×      │   0.3129     │    2.15×      │
+│    4    │   0.0391     │    2.70×      │   0.1764     │    3.81×      │
+│    8    │   0.0445     │    2.38×      │   0.1622     │    4.14×      │
 └─────────┴──────────────┴───────────────┴──────────────┴───────────────┘
+
+========================================================
+ANÁLISE DAS RESPOSTAS
+========================================================
 
 (a) O que acontece ao comparar 1 thread vs 2 threads?
 
 Com n = 100 milhões de trapézios:
-  - 1 thread:  0.3626 s
-  - 2 threads: 0.1899 s → speedup de 1.91× (≈ 2× ideal)
+  - 1 thread:  0.6714 s
+  - 2 threads: 0.3129 s → speedup de 2.15× (≈ 2× ideal)
 
 O tempo cai quase pela metade. Cada thread calcula metade do intervalo
 de integração de forma independente. Como não há comunicação durante o
-cálculo (apenas na redução final), o paralelismo é altamente eficiente.
+cálculo (apenas na redução final via reduction(+:local_int)), o
+paralelismo é altamente eficiente.
 
 (b) Comparação com omp_trap2b.c:
 
-omp_trap2b.c usa parallel + reduction no bloco principal, enquanto
-a versão modificada usa o "primeiro bloco da p.222" (Local_trap manual
-com barrier). O desempenho é equivalente para n grande porque o trabalho
-de cálculo domina. omp_trap2b.c é mais legível e portável, pois delega
-o balanceamento ao compilador OpenMP.
+omp_trap2b.c usa parallel for + reduction no laço principal, enquanto
+a versão omp_trap_cronometrado.c usa bloco parallel manual com
+divisão explícita por my_rank + barrier. O desempenho é equivalente
+para n grande porque o trabalho de cálculo domina o overhead de
+sincronização. omp_trap2b.c é mais legível e portável.
 
 ANÁLISE DO SPEEDUP:
-- O speedup com 8 threads (~6.6×) está abaixo do ideal (8×), o que é
-  normal: há overhead de criação de threads, sincronização e possível
-  limitação de banda de memória.
-- Com n=10M, o overhead é relativamente maior (tarefas menores), então
-  o speedup é menos uniforme — pode até superlinear por efeitos de cache.
-- Com n=100M, o speedup se torna mais próximo do ideal porque o custo
-  de computação domina o overhead de coordenação.
+- Com n=1M: speedup irregular (n pequeno → overhead de thread domina)
+- Com n=10M: speedup de 2.33× a 2.70× — paralelismo parcial
+- Com n=100M: speedup de até 4.14× — trabalho computa domina overhead
+- O speedup com 8 threads não atinge 8× (ideal) por:
+  * Overhead de criação/sincronização de threads
+  * Barreira (#pragma omp barrier) ao final do bloco
+  * Limitação de banda de memória (todos os dados em cache L3 compartilhado)
 
-CONCLUSÃO: a paralelização da regra do trapézio escala bem porque cada
-thread trabalha em uma partição independente do intervalo [a,b] —
-padrão de paralelismo "embarrassingly parallel".
+CONCLUSÃO: a paralelização da regra do trapézio escala bem para n
+grande porque cada thread trabalha em partição independente de [a,b].
+Padrão "embarrassingly parallel" — sem comunicação durante o cálculo.
