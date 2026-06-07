@@ -1,0 +1,12 @@
+=== 1 thread, n=10000000 ===
+1 thread: 0.1461 segundos
+1 threads: 0.1445 segundos
+=== 2 threads, n=10000000 ===
+1 thread: 0.1448 segundos
+2 threads: 0.1708 segundos
+=== 4 threads, n=10000000 ===
+1 thread: 0.1452 segundos
+4 threads: 0.1795 segundos
+=== 8 threads, n=10000000 ===
+1 thread: 0.1456 segundos
+8 threads: 0.1856 segundos

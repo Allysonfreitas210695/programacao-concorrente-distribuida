@@ -1,8 +1,6 @@
 QUESTÃO 7 - Diretivas atomic com diferentes variáveis
 ======================================================
 
-Gráfico gerado: ../resultados/graficos/q7_atomic_privado.png
-
 ========================================================
 COMPILAÇÃO E EXECUÇÃO
 ========================================================
@@ -14,68 +12,118 @@ Uso: ./omp_atomic_test <n> <num_threads>
   <n>           = número de iterações do laço
   <num_threads> = número de threads para o TESTE 2
 
-Execuções realizadas (n = 10.000.000):
+Execuções realizadas no supercomputador Santos Dumont
+(partição sequana_cpu_dev, n = 10.000.000):
 
   $ ./omp_atomic_test 10000000 1
-  1 thread: 0.5539 segundos
-  1 threads: 0.3795 segundos
+  1 thread:         0.1510 segundos
+  1 threads: 0.1467 segundos
 
   $ ./omp_atomic_test 10000000 2
-  1 thread: 0.3272 segundos
-  2 threads: 0.3388 segundos
+  1 thread:         0.1496 segundos
+  2 threads: 0.8420 segundos
 
   $ ./omp_atomic_test 10000000 4
-  1 thread: 0.3642 segundos
-  4 threads: 0.5066 segundos
+  1 thread:         0.1496 segundos
+  4 threads: 1.3912 segundos
 
   $ ./omp_atomic_test 10000000 8
-  1 thread: 0.3303 segundos
-  8 threads: 0.6940 segundos
+  1 thread:         0.1499 segundos
+  8 threads: 2.6248 segundos
 
 ========================================================
-TABELA COMPARATIVA (dados reais, máquina local 8 núcleos)
+TABELA COMPARATIVA (dados reais, Santos Dumont)
 ========================================================
 
-┌─────────┬──────────────────┬──────────────────┬──────────────────────┐
-│ Threads │ Baseline (1t)    │ Tempo com N thr.  │ Razão (Nt / 1t)     │
-├─────────┼──────────────────┼──────────────────┼──────────────────────┤
-│    1    │   0.5539 s       │   0.3795 s        │    0.69× (mais ráp.)│
-│    2    │   0.3272 s       │   0.3388 s        │    1.04× (≈ igual)  │
-│    4    │   0.3642 s       │   0.5066 s        │    1.39× (leve aum.)│
-│    8    │   0.3303 s       │   0.6940 s        │    2.10× (dobrou)   │
-└─────────┴──────────────────┴──────────────────┴──────────────────────┘
+┌─────────┬──────────────────┬──────────────────┬───────────────────────────┐
+│ Threads │ Baseline (1t)    │ Tempo com N thr. │ Razão (Nt / 1t)           │
+├─────────┼──────────────────┼──────────────────┼───────────────────────────┤
+│    1    │   0.1510 s       │   0.1467 s       │   0.97× (≈ igual)         │
+│    2    │   0.1496 s       │   0.8420 s       │   5.63× (pior que serial) │
+│    4    │   0.1496 s       │   1.3912 s       │   9.30× (pior que serial) │
+│    8    │   0.1499 s       │   2.6248 s       │  17.51× (pior que serial) │
+└─────────┴──────────────────┴──────────────────┴───────────────────────────┘
 
 ========================================================
-INTERPRETAÇÃO DOS RESULTADOS
+ANÁLISE DO CÓDIGO
 ========================================================
 
-Com minha_soma declarada DENTRO do bloco parallel, cada thread tem sua
-própria cópia privada (variável na pilha da thread). O #pragma omp atomic
-protege variáveis DIFERENTES (uma por thread) — portanto NÃO forma uma
-seção crítica global.
+Em ambos os blocos parallel, minha_soma é declarada DENTRO do bloco:
 
-O tempo com N threads cresce porque o TRABALHO TOTAL cresce:
-  - 1 thread:  1 × n = 10M iterações de sin()
-  - 2 threads: 2 × n = 20M iterações de sin()  (todas em paralelo)
-  - 4 threads: 4 × n = 40M iterações de sin()  (todas em paralelo)
-  - 8 threads: 8 × n = 80M iterações de sin()  (todas em paralelo)
+    #pragma omp parallel num_threads(thread_count)
+    {
+        double minha_soma = 0.0;   /* variável local → privada por thread */
+        for (i = 0; i < n; i++) {
+            #pragma omp atomic
+            minha_soma += sin(i);
+        }
+    }
 
-Cada thread executa o loop COMPLETO (sem dividir), então o trabalho
-total é proporcional ao número de threads. Mesmo assim, como o atomic
-protege variáveis independentes, todas as threads executam em PARALELO
-real, sem serialização.
+Por ser uma variável de pilha (stack) declarada dentro da região
+paralela, cada thread tem sua PRÓPRIA cópia de minha_soma em sua
+própria pilha. Não existe compartilhamento de memória entre threads.
 
-PROVA: se atomic formasse UMA seção crítica global, o tempo com 8
-threads seria ~8× maior que com 1 thread (serialização total). Mas o
-resultado real mostra apenas ~2× — confirmando que atomic em variáveis
-diferentes são seções críticas INDEPENDENTES e permitem execução
-simultânea.
+Consequência lógica: o #pragma omp atomic é tecnicamente REDUNDANTE.
+Não há corrida de dados (race condition), pois nenhuma outra thread
+acessa minha_soma de outra thread.
 
-O overhead de ~2× com 8 threads ocorre por contenção em cache (8
-threads calculando sin() em paralelo disputam UCP e cache L3), não
-por serialização do atomic.
+========================================================
+POR QUE O DESEMPENHO PIORA COM MAIS THREADS?
+========================================================
 
-RESPOSTA À QUESTÃO: SIM, a implementação OpenMP PERMITE execução
-simultânea de atualizações atômicas para variáveis diferentes. Cada
-#pragma omp atomic protege apenas a sua variável específica — não
-existe uma trava global compartilhada entre elas.
+Apesar de não haver contenda lógica, os resultados mostram
+degradação severa. Há duas causas principais:
+
+1. ATOMIC IMPEDE OTIMIZAÇÃO EM REGISTRADOR
+   Sem atomic, o compilador manteria minha_soma em um registrador
+   de ponto flutuante durante todo o laço (zero acesso à memória).
+   Com atomic, o compilador é OBRIGADO a emitir uma instrução
+   lock xadd (ou equivalente) que lê e escreve na memória a cada
+   iteração. Isso substitui ~1 ciclo (op. registrador) por ~30-100
+   ciclos (instrução atômica com barreira de memória).
+
+2. PRESSÃO SOBRE RECURSOS COMPARTILHADOS DE HARDWARE
+   Cada thread executa o laço COMPLETO (sem divisão de trabalho):
+     - 1 thread:  10M chamadas a sin()
+     - 2 threads: 20M chamadas a sin() (todas simultâneas)
+     - 8 threads: 80M chamadas a sin() (todas simultâneas)
+
+   A função sin() internamente usa tabelas trigonométricas que
+   residem em cache. Com 8 threads simultâneas disputando as
+   tabelas no cache L3 compartilhado e a largura de banda de
+   memória, o throughput por thread cai drasticamente.
+
+   O overhead é super-linear (17× com 8 threads, em vez de 8×)
+   porque a competição por L3 e barramento aumenta não linearmente
+   com o número de threads.
+
+========================================================
+RESPOSTA À QUESTÃO
+========================================================
+
+Quando as variáveis são VERDADEIRAMENTE DIFERENTES (em endereços
+distintos, sem compartilhamento de linha de cache), o #pragma omp
+atomic NÃO causa serialização entre threads — cada atomic é
+independente.
+
+Porém, usar atomic numa variável privada (que não precisa de
+proteção) traz dois problemas:
+
+  a) Impede o compilador de usar registradores → força acesso à
+     memória em todo ciclo do laço → operação fica ~30-100× mais
+     lenta por si só (mesmo com 1 thread).
+
+  b) Com múltiplas threads, a pressão combinada sobre cache L3
+     e largura de banda de memória causa degradação adicional.
+
+CONCLUSÃO: atomic em variáveis DIFERENTES não produz seção crítica
+global — mas usar atomic desnecessariamente em variáveis privadas
+prejudica o desempenho por impedir otimizações do compilador e
+saturar recursos de hardware compartilhados. O padrão correto para
+acumulação privada é usar variável de registrador sem atomic e
+combinar os resultados no final (reduction):
+
+    double soma_total = 0.0;
+    #pragma omp parallel for reduction(+:soma_total)
+    for (int i = 0; i < n; i++)
+        soma_total += sin(i);

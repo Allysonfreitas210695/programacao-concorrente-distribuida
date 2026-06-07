@@ -1,14 +1,9 @@
-/* Inclui funções de entrada/saída padrão (printf) */
 #include <stdio.h>
-/* Inclui funções de conversão (atoi, atoll) e gerador de números aleatórios */
 #include <stdlib.h>
-/* Inclui constantes e funções matemáticas (M_PI, fabs) */
 #include <math.h>
-/* Inclui a API OpenMP (pragma omp, omp_get_wtime, omp_get_thread_num) */
 #include <omp.h>
 
 int main(int argc, char* argv[]) {
-    /* Verifica se os dois argumentos obrigatórios foram fornecidos */
     if (argc < 3) {
         printf("Uso: %s <num_lancamentos> <num_threads>\n", argv[0]);
         return 1; /* Encerra com erro se faltar argumento */

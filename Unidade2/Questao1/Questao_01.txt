@@ -1,0 +1,81 @@
+Threads=1, n=1000:
+Enter a, b, and n
+With n = 1000 trapezoids, our estimate
+of the integral from 0.000000 to 3.000000 = 9.00000450000000e+00
+Threads=1, n=10000:
+Enter a, b, and n
+With n = 10000 trapezoids, our estimate
+of the integral from 0.000000 to 3.000000 = 9.00000004500000e+00
+Threads=1, n=100000:
+Enter a, b, and n
+With n = 100000 trapezoids, our estimate
+of the integral from 0.000000 to 3.000000 = 9.00000000045004e+00
+Threads=1, n=1000000:
+Enter a, b, and n
+With n = 1000000 trapezoids, our estimate
+of the integral from 0.000000 to 3.000000 = 9.00000000000450e+00
+Threads=2, n=1000:
+Enter a, b, and n
+With n = 1000 trapezoids, our estimate
+of the integral from 0.000000 to 3.000000 = 9.00000450000000e+00
+Threads=2, n=10000:
+Enter a, b, and n
+With n = 10000 trapezoids, our estimate
+of the integral from 0.000000 to 3.000000 = 9.00000004500001e+00
+Threads=2, n=100000:
+Enter a, b, and n
+With n = 100000 trapezoids, our estimate
+of the integral from 0.000000 to 3.000000 = 9.00000000044999e+00
+Threads=2, n=1000000:
+Enter a, b, and n
+With n = 1000000 trapezoids, our estimate
+of the integral from 0.000000 to 3.000000 = 9.00000000000446e+00
+Threads=4, n=1000:
+Enter a, b, and n
+With n = 1000 trapezoids, our estimate
+of the integral from 0.000000 to 3.000000 = 9.00000450000000e+00
+Threads=4, n=10000:
+Enter a, b, and n
+With n = 10000 trapezoids, our estimate
+of the integral from 0.000000 to 3.000000 = 8.01562503375000e+00
+Threads=4, n=100000:
+Enter a, b, and n
+With n = 100000 trapezoids, our estimate
+of the integral from 0.000000 to 3.000000 = 6.32812500033751e+00
+Threads=4, n=1000000:
+Enter a, b, and n
+With n = 1000000 trapezoids, our estimate
+of the integral from 0.000000 to 3.000000 = 9.00000000000456e+00
+Threads=8, n=1000:
+Enter a, b, and n
+With n = 1000 trapezoids, our estimate
+of the integral from 0.000000 to 3.000000 = 6.02930081250000e+00
+Threads=8, n=10000:
+Enter a, b, and n
+With n = 10000 trapezoids, our estimate
+of the integral from 0.000000 to 3.000000 = 7.92773441437499e+00
+Threads=8, n=100000:
+Enter a, b, and n
+With n = 100000 trapezoids, our estimate
+of the integral from 0.000000 to 3.000000 = 9.00000000045000e+00
+Threads=8, n=1000000:
+Enter a, b, and n
+With n = 1000000 trapezoids, our estimate
+of the integral from 0.000000 to 3.000000 = 5.78320312500279e+00
+Threads=16, n=1000:
+usage: ./omp_trap_1 <number of threads>
+   number of trapezoids must be evenly divisible by
+   number of threads
+Enter a, b, and n
+Threads=16, n=10000:
+Enter a, b, and n
+With n = 10000 trapezoids, our estimate
+of the integral from 0.000000 to 3.000000 = 6.87963870281250e+00
+Threads=16, n=100000:
+Enter a, b, and n
+With n = 100000 trapezoids, our estimate
+of the integral from 0.000000 to 3.000000 = 3.28491210957186e+00
+Threads=16, n=1000000:
+Enter a, b, and n
+With n = 1000000 trapezoids, our estimate
+of the integral from 0.000000 to 3.000000 = 4.67358398437754e+00

@@ -1,12 +1,15 @@
 #!/bin/bash
+#SBATCH --nodes=1
 #SBATCH --job-name=omp_escalonamento_q4
 #SBATCH --output=saida_q4.txt
+#SBATCH --ntasks-per-node=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
-#SBATCH --time=00:05:00
-#SBATCH --partition=sequana_cpu_dev
+#SBATCH --cpus-per-task=16 
+#SBATCH -p sequana_cpu_dev
+#SBATCH --exclusive
 
-module load gcc
+module load gcc/13.2_sequana
+
 gcc -fopenmp -o omp_escalonamento omp_escalonamento.c
 
 echo "=== 2 threads, 4 iteracoes ==="

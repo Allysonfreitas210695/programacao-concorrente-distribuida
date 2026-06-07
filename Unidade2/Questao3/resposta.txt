@@ -2,40 +2,153 @@ QUESTÃO 3 - Aritmética de ponto flutuante no Bleeblon
 ======================================================
 
 Contexto: float armazena 3 dígitos decimais, registradores têm 4 dígitos,
-resultado é arredondado para 3 dígitos após cada operação.
+resultado é arredondado para 3 dígitos após cada operação de ponto flutuante.
 
 Array: float a[] = {4.0, 3.0, 3.0, 1000.0}
 
-(a) Código serial:
+========================================================
+(a) Código serial
+========================================================
 
-Passo a passo:
-- sum = 0.0
-- i=0: sum = 0.0 + 4.0 = 4.00  -> arredonda para 4.00
-- i=1: sum = 4.00 + 3.0 = 7.00 -> arredonda para 7.00
-- i=2: sum = 7.00 + 3.0 = 10.0 -> arredonda para 10.0
-- i=3: sum = 10.0 + 1000.0 = 1010.0 -> arredonda para 1010 (3 dígitos sig.)
+Tabela 1. Iteração 1 - i = 0 : sum = 0.0 : a[i] = 4.0
++------+--------------------+----------------+----------------+----------------+
+| Passo| Operação           | Operando 1     | Operando 2     | Resultado      |
++------+--------------------+----------------+----------------+----------------+
+|  1   | Fetch operands     | 0.000 × 10^0   | 4.000 × 10^0   |                |
+|  2   | Compare exponents  | 0.000 × 10^0   | 4.000 × 10^0   |                |
+|  3   | Shift one operand  | 0.000 × 10^0   | 4.000 × 10^0   |                |
+|  4   | Add                | 0.000 × 10^0   | 4.000 × 10^0   | 4.000 × 10^0   |
+|  5   | Normalize result   | 0.000 × 10^0   | 4.000 × 10^0   | 4.000 × 10^0   |
+|  6   | Round result       | 0.000 × 10^0   | 4.000 × 10^0   | 4.00 × 10^0    |
+|  7   | Store result       | 0.000 × 10^0   | 4.000 × 10^0   | 4.00 × 10^0    |
++------+--------------------+----------------+----------------+----------------+
+
+Tabela 2. Iteração 2 - i = 1 : sum = 4.0 : a[i] = 3.0
++------+--------------------+----------------+----------------+----------------+
+| Passo| Operação           | Operando 1     | Operando 2     | Resultado      |
++------+--------------------+----------------+----------------+----------------+
+|  1   | Fetch operands     | 4.000 × 10^0   | 3.000 × 10^0   |                |
+|  2   | Compare exponents  | 4.000 × 10^0   | 3.000 × 10^0   |                |
+|  3   | Shift one operand  | 4.000 × 10^0   | 3.000 × 10^0   |                |
+|  4   | Add                | 4.000 × 10^0   | 3.000 × 10^0   | 7.000 × 10^0   |
+|  5   | Normalize result   | 4.000 × 10^0   | 3.000 × 10^0   | 7.000 × 10^0   |
+|  6   | Round result       | 4.000 × 10^0   | 3.000 × 10^0   | 7.00 × 10^0    |
+|  7   | Store result       | 4.000 × 10^0   | 3.000 × 10^0   | 7.00 × 10^0    |
++------+--------------------+----------------+----------------+----------------+
+
+Tabela 3. Iteração 3 - i = 2 : sum = 7.0 : a[i] = 3.0
++------+--------------------+----------------+----------------+----------------+
+| Passo| Operação           | Operando 1     | Operando 2     | Resultado      |
++------+--------------------+----------------+----------------+----------------+
+|  1   | Fetch operands     | 7.000 × 10^0   | 3.000 × 10^0   |                |
+|  2   | Compare exponents  | 7.000 × 10^0   | 3.000 × 10^0   |                |
+|  3   | Shift one operand  | 7.000 × 10^0   | 3.000 × 10^0   |                |
+|  4   | Add                | 7.000 × 10^0   | 3.000 × 10^0   | 10.00 × 10^0   |
+|  5   | Normalize result   | 7.000 × 10^0   | 3.000 × 10^0   | 1.000 × 10^1   |
+|  6   | Round result       | 7.000 × 10^0   | 3.000 × 10^0   | 1.00 × 10^1    |
+|  7   | Store result       | 7.000 × 10^0   | 3.000 × 10^0   | 1.00 × 10^1    |
++------+--------------------+----------------+----------------+----------------+
+
+Tabela 4. Iteração 4 - i = 3 : sum = 10.0 : a[i] = 1000.0
++------+--------------------+----------------+----------------+----------------+
+| Passo| Operação           | Operando 1     | Operando 2     | Resultado      |
++------+--------------------+----------------+----------------+----------------+
+|  1   | Fetch operands     | 1.000 × 10^1   | 1.000 × 10^3   |                |
+|  2   | Compare exponents  | 1.000 × 10^1   | 1.000 × 10^3   |                |
+|  3   | Shift one operand  | 0.010 × 10^3   | 1.000 × 10^3   |                |
+|  4   | Add                | 0.010 × 10^3   | 1.000 × 10^3   | 1.010 × 10^3   |
+|  5   | Normalize result   | 0.010 × 10^3   | 1.000 × 10^3   | 1.010 × 10^3   |
+|  6   | Round result       | 0.010 × 10^3   | 1.000 × 10^3   | 1.01 × 10^3    |
+|  7   | Store result       | 0.010 × 10^3   | 1.000 × 10^3   | 1.01 × 10^3    |
++------+--------------------+----------------+----------------+----------------+
 
 Saída: sum = 1010.0
 
-Justificativa: como os valores pequenos são somados antes do 1000.0, eles
-acumulam corretamente antes do valor grande ser adicionado.
+Justificativa: os valores pequenos (4.0, 3.0, 3.0) são somados antes do 1000.0,
+acumulando corretamente. Na iteração 4, 10.0 é alinhado para 0.010 × 10^3 e
+somado a 1.000 × 10^3, resultando em 1.010 × 10^3 = 1010. Com 3 dígitos
+significativos, isso arredonda para 1.01 × 10^3 = 1010.0.
 
-(b) Código paralelo com 2 threads:
+========================================================
+(b) Código paralelo com 2 threads (reduction(+:sum))
+========================================================
 
-Thread 0 processa i=0,1 (a[0]=4.0, a[1]=3.0):
-- local_sum0 = 0.0 + 4.0 = 4.00
-- local_sum0 = 4.00 + 3.0 = 7.00
+Thread 0 processa i = 0, 1  →  a[0]=4.0, a[1]=3.0
 
-Thread 1 processa i=2,3 (a[2]=3.0, a[3]=1000.0):
-- local_sum1 = 0.0 + 3.0 = 3.00
-- local_sum1 = 3.00 + 1000.0 = 1003.0 -> arredonda para 1000 (apenas 3 dígitos!)
+Tabela 5. Thread 0 - Iteração 1 - i = 0 : local_sum0 = 0.0 : a[i] = 4.0
++------+--------------------+----------------+----------------+----------------+
+| Passo| Operação           | Operando 1     | Operando 2     | Resultado      |
++------+--------------------+----------------+----------------+----------------+
+|  1   | Fetch operands     | 0.000 × 10^0   | 4.000 × 10^0   |                |
+|  4   | Add                | 0.000 × 10^0   | 4.000 × 10^0   | 4.000 × 10^0   |
+|  6   | Round result       | 0.000 × 10^0   | 4.000 × 10^0   | 4.00 × 10^0    |
+|  7   | Store result       |                |                | 4.00 × 10^0    |
++------+--------------------+----------------+----------------+----------------+
 
-Redução: sum = 7.00 + 1000 = 1007 -> com 4 dígitos no registrador -> arredonda para 1010.
+Tabela 6. Thread 0 - Iteração 2 - i = 1 : local_sum0 = 4.0 : a[i] = 3.0
++------+--------------------+----------------+----------------+----------------+
+| Passo| Operação           | Operando 1     | Operando 2     | Resultado      |
++------+--------------------+----------------+----------------+----------------+
+|  1   | Fetch operands     | 4.000 × 10^0   | 3.000 × 10^0   |                |
+|  4   | Add                | 4.000 × 10^0   | 3.000 × 10^0   | 7.000 × 10^0   |
+|  6   | Round result       | 4.000 × 10^0   | 3.000 × 10^0   | 7.00 × 10^0    |
+|  7   | Store result       |                |                | 7.00 × 10^0    |
++------+--------------------+----------------+----------------+----------------+
+
+  → local_sum0 = 7.0
+
+-----------------------------------------------------------------------
+
+Thread 1 processa i = 2, 3  →  a[2]=3.0, a[3]=1000.0
+
+Tabela 7. Thread 1 - Iteração 1 - i = 2 : local_sum1 = 0.0 : a[i] = 3.0
++------+--------------------+----------------+----------------+----------------+
+| Passo| Operação           | Operando 1     | Operando 2     | Resultado      |
++------+--------------------+----------------+----------------+----------------+
+|  1   | Fetch operands     | 0.000 × 10^0   | 3.000 × 10^0   |                |
+|  4   | Add                | 0.000 × 10^0   | 3.000 × 10^0   | 3.000 × 10^0   |
+|  6   | Round result       | 0.000 × 10^0   | 3.000 × 10^0   | 3.00 × 10^0    |
+|  7   | Store result       |                |                | 3.00 × 10^0    |
++------+--------------------+----------------+----------------+----------------+
+
+Tabela 8. Thread 1 - Iteração 2 - i = 3 : local_sum1 = 3.0 : a[i] = 1000.0
++------+--------------------+----------------+----------------+----------------+
+| Passo| Operação           | Operando 1     | Operando 2     | Resultado      |
++------+--------------------+----------------+----------------+----------------+
+|  1   | Fetch operands     | 3.000 × 10^0   | 1.000 × 10^3   |                |
+|  2   | Compare exponents  | 3.000 × 10^0   | 1.000 × 10^3   |                |
+|  3   | Shift one operand  | 0.003 × 10^3   | 1.000 × 10^3   |                |
+|  4   | Add                | 0.003 × 10^3   | 1.000 × 10^3   | 1.003 × 10^3   |
+|  5   | Normalize result   | 0.003 × 10^3   | 1.000 × 10^3   | 1.003 × 10^3   |
+|  6   | Round result       | 0.003 × 10^3   | 1.000 × 10^3   | 1.00 × 10^3    |
+|  7   | Store result       |                |                | 1.00 × 10^3    |
++------+--------------------+----------------+----------------+----------------+
+
+  → local_sum1 = 1000.0  (o 3.0 foi PERDIDO no arredondamento!)
+
+-----------------------------------------------------------------------
+
+Redução final: sum = local_sum0 + local_sum1
+
+Tabela 9. Redução - sum = 7.0 + 1000.0
++------+--------------------+----------------+----------------+----------------+
+| Passo| Operação           | Operando 1     | Operando 2     | Resultado      |
++------+--------------------+----------------+----------------+----------------+
+|  1   | Fetch operands     | 7.000 × 10^0   | 1.000 × 10^3   |                |
+|  2   | Compare exponents  | 7.000 × 10^0   | 1.000 × 10^3   |                |
+|  3   | Shift one operand  | 0.007 × 10^3   | 1.000 × 10^3   |                |
+|  4   | Add                | 0.007 × 10^3   | 1.000 × 10^3   | 1.007 × 10^3   |
+|  5   | Normalize result   | 0.007 × 10^3   | 1.000 × 10^3   | 1.007 × 10^3   |
+|  6   | Round result       | 0.007 × 10^3   | 1.000 × 10^3   | 1.01 × 10^3    |
+|  7   | Store result       |                |                | 1.01 × 10^3    |
++------+--------------------+----------------+----------------+----------------+
 
 Saída: sum = 1010.0
 
-Obs: Neste caso específico o resultado é o mesmo, mas o valor intermediário
-local_sum1 perdeu o 3.0 (virou 1000 após arredondamento), o que poderia
-causar diferenças em outros cenários. Se a[2] fosse 6.0:
-serial daria 1013->1010, paralelo daria 1006->1010 vs 1010 — os resultados
-podem divergir dependendo dos valores.
+Obs: O resultado final coincide com o serial (1010.0), porém por motivos
+diferentes. Na Thread 1, o valor intermediário 1.003 × 10^3 foi arredondado
+para 1.00 × 10^3 (perdendo o 3.0). Na redução, 7.0 + 1000.0 = 1007 foi
+arredondado para 1010.0. Os dois erros de arredondamento se compensaram
+neste caso específico. Em outros cenários (ex: a[2] = 6.0), o resultado
+paralelo poderia divergir do serial, demonstrando que a aritmética de
+ponto flutuante NÃO é associativa em precisão limitada.

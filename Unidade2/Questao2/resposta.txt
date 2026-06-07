@@ -83,22 +83,51 @@ ANÁLISE DAS RESPOSTAS
 
 (a) O que acontece ao comparar 1 thread vs 2 threads?
 
-Com n = 100 milhões de trapézios:
-  - 1 thread:  0.6714 s
-  - 2 threads: 0.3129 s → speedup de 2.15× (≈ 2× ideal)
+Execuções reais com n = 100.000.000 trapézios (f(x) = x², intervalo [0,1]):
 
-O tempo cai quase pela metade. Cada thread calcula metade do intervalo
-de integração de forma independente. Como não há comunicação durante o
-cálculo (apenas na redução final via reduction(+:local_int)), o
-paralelismo é altamente eficiente.
+  $ ./omp_trap_cron 100000000 1
+  Tempo do bloco paralelo: 0.356594 segundos
+  Resultado: 0.333333
+
+  $ ./omp_trap_cron 100000000 2
+  Tempo do bloco paralelo: 0.178769 segundos
+  Resultado: 0.333333
+
+  $ ./omp_trap_cron 100000000 4
+  Tempo do bloco paralelo: 0.141668 segundos
+  Resultado: 0.333333
+
+O tempo caiu de 0.3566s para 0.1788s ao dobrar as threads — speedup de
+~2.0× (quase ideal). Com 4 threads o speedup é 2.52×. Isso ocorre porque
+cada thread calcula sua partição do intervalo de forma completamente
+independente. O único ponto de sincronização é a redução final
+(reduction(+:local_int)), que tem custo desprezível frente ao cálculo.
+O resultado numérico permanece correto (0.333333 ≈ 1/3) em todas as
+execuções — a paralelização não introduz erros.
 
 (b) Comparação com omp_trap2b.c:
 
-omp_trap2b.c usa parallel for + reduction no laço principal, enquanto
-a versão omp_trap_cronometrado.c usa bloco parallel manual com
-divisão explícita por my_rank + barrier. O desempenho é equivalente
-para n grande porque o trabalho de cálculo domina o overhead de
-sincronização. omp_trap2b.c é mais legível e portável.
+Execuções reais com n = 100.000.000 trapézios via stdin:
+
+  $ echo "0.0 1.0 100000000" | ./omp_trap2b 1
+  With n = 100000000 trapezoids, our estimate
+  of the integral from 0.000000 to 1.000000 = 3.33333333333223e-01
+
+  $ echo "0.0 1.0 100000000" | ./omp_trap2b 2
+  With n = 100000000 trapezoids, our estimate
+  of the integral from 0.000000 to 1.000000 = 3.33333333333255e-01
+
+  $ echo "0.0 1.0 100000000" | ./omp_trap2b 4
+  With n = 100000000 trapezoids, our estimate
+  of the integral from 0.000000 to 1.000000 = 3.33333333333338e-01
+
+omp_trap2b.c usa #pragma omp parallel + reduction(+:global_result) com
+a função Local_trap() chamada por cada thread. A abordagem é idêntica
+em desempenho à versão cronometrada — ambas dividem o trabalho por
+my_rank manualmente. A diferença é que omp_trap2b.c é mais limpo: separa
+a lógica em uma função dedicada (Local_trap) e lê a, b, n via stdin em
+vez de argv. Não tem timer interno, mas ao medir com `time` o tempo é
+equivalente à versão cronometrada para o mesmo n e número de threads.
 
 ANÁLISE DO SPEEDUP:
 - Com n=1M: speedup irregular (n pequeno → overhead de thread domina)
