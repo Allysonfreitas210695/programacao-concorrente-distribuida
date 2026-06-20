@@ -14,44 +14,24 @@ Uso: ./omp_histograma <num_elementos> <num_buckets> <num_threads>
 
 Execuções realizadas (n=10.000.000 elementos, 20 buckets):
 
-  $ ./omp_histograma 10000000 20 1
-  Histograma (10000000 elementos, 20 buckets, 1 threads):
-    Bucket [  0]: 499095
-    Bucket [  1]: 500382
-    Bucket [  2]: 499030
-    Bucket [  3]: 499643
-    Bucket [  4]: 499386
-    Bucket [  5]: 501425
-    Bucket [  6]: 501275
-    Bucket [  7]: 499161
-    Bucket [  8]: 499225
-    Bucket [  9]: 500968
-    Bucket [ 10]: 500258
-    Bucket [ 11]: 499353
-    Bucket [ 12]: 500038
-    Bucket [ 13]: 500014
-    Bucket [ 14]: 500803
-    Bucket [ 15]: 500452
-    Bucket [ 16]: 500508
-    Bucket [ 17]: 498870
-    Bucket [ 18]: 499555
-    Bucket [ 19]: 500559
-  Tempo: 0.0396 segundos
+  $ ./omp_histograma 10 0 100 10000000 1
+  Histograma (10000000 elementos, 10 buckets, 1 threads):
+  Tempo: 0.7278 segundos
 
-  $ ./omp_histograma 10000000 20 2
-  Histograma (10000000 elementos, 20 buckets, 2 threads):
+  $ ./omp_histograma 10 0 100 10000000 2
+  Histograma (10000000 elementos,   0 buckets, 2 threads):
   [... mesmos valores de bucket ...]
-  Tempo: 0.0207 segundos
+  Tempo: 0.3531 segundos
 
-  $ ./omp_histograma 10000000 20 4
-  Histograma (10000000 elementos, 20 buckets, 4 threads):
+  $ ./omp_histograma 100 0 100 10000000 4
+  Histograma (10000000 elementos,   00 buckets, 4 threads):
   [... mesmos valores de bucket ...]
-  Tempo: 0.0164 segundos
+  Tempo:  0.3246 segundos
 
-  $ ./omp_histograma 10000000 20 8
+  $ ./omp_histograma 20 0 100 10000000 8
   Histograma (10000000 elementos, 20 buckets, 8 threads):
   [... mesmos valores de bucket ...]
-  Tempo: 0.0087 segundos
+  Tempo: 0.1867 segundos
 
   Obs: todos os resultados de bucket são IDÊNTICOS entre 1, 2, 4 e 8
   threads — prova de corretude da implementação paralela.
