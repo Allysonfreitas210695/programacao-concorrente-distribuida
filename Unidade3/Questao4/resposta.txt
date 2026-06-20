@@ -1,0 +1,53 @@
+Questão 4 - Vetores e Escalar com MPI
+======================================
+
+Programa MPI que:
+  - Lê dois vetores (x, y) e um escalar no processo 0
+  - Distribui entre os processos (n divisível por comm_sz)
+  - Multiplica x pelo escalar (operação elemento a elemento)
+  - Calcula a norma euclidiana de y: ||y|| = sqrt(sum(y[i]^2))
+  - Coleta e imprime os resultados no processo 0
+
+ESTRATÉGIA:
+-----------
+1. Processo 0 lê n, scalar, x[] e y[] do stdin.
+2. MPI_Bcast distribui n e scalar para todos.
+3. MPI_Scatter divide x e y em fatias iguais de local_n = n/comm_sz elementos.
+4. Cada processo multiplica sua fatia de x pelo scalar.
+5. Cada processo calcula a soma parcial dos quadrados de sua fatia de y.
+6. MPI_Gather coleta as fatias de x*scalar no processo 0.
+7. MPI_Reduce soma as parciais dos quadrados → processo 0 tira a raiz quadrada.
+
+Trecho mais importante:
+-----------------------
+    local_n = n / comm_sz;
+
+    MPI_Scatter(x, local_n, MPI_DOUBLE, local_x, local_n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Scatter(y, local_n, MPI_DOUBLE, local_y, local_n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    for (int i = 0; i < local_n; i++) local_x[i] *= scalar;
+
+    local_norm_sq = 0.0;
+    for (int i = 0; i < local_n; i++) local_norm_sq += local_y[i] * local_y[i];
+
+    MPI_Gather(local_x, local_n, MPI_DOUBLE, result_x, local_n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&local_norm_sq, &global_norm_sq, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
+    if (my_rank == 0)
+        printf("Norma de y: %.6f\n", sqrt(global_norm_sq));
+
+Compilação e execução:
+----------------------
+    mpicc -g -Wall -o mpi_vec_q4 mpi_vec_q4.c -lm
+    mpiexec -n 4 ./mpi_vec_q4
+
+Exemplo de entrada (n=8, p=4, scalar=2.0):
+    n=8, scalar=2.0
+    x = {1, 2, 3, 4, 5, 6, 7, 8}
+    y = {3, 4, 0, 0, 0, 0, 0, 0}
+
+Saída esperada:
+    x * 2.00: 2.0000 4.0000 6.0000 8.0000 10.0000 12.0000 14.0000 16.0000
+    Norma de y: 5.000000   (sqrt(3^2 + 4^2) = sqrt(9+16) = 5)
+
+Restrição: n deve ser divisível por comm_sz (use Q7 para o caso geral).

@@ -1,0 +1,29 @@
+Questão 10 - MPI_Type_indexed (Triangular Superior)
+====================================================
+
+MPI_Type_indexed permite selecionar blocos de tamanhos e deslocamentos arbitrários
+de um array, diferente de MPI_Type_create_struct os deslocamentos são em unidades
+do tipo base (MPI_INT aqui), não em bytes.
+
+Para uma matriz n×n em row-major (vetor 1D de tamanho n*n):
+  - Linha 0: elementos 0..n-1         → blocklength=n,   displacement=0
+  - Linha 1: elementos n+1..n+n-1     → blocklength=n-1, displacement=n+1
+  - Linha i: elementos (i*n+i)..(i*n+n-1) → blocklength=n-i, displacement=i*n+i
+  - ...
+  - Linha n-1: elemento (n-1)*n+(n-1) → blocklength=1,   displacement=(n-1)*n+(n-1)
+
+Exemplo 4×4: elementos 0,1,2,3,5,6,7,10,11,15
+
+Trecho mais importante:
+-----------------------
+    for (int i = 0; i < n; i++) {
+        blocklengths[i]  = n - i;       /* elementos na linha i acima da diagonal */
+        displacements[i] = i * n + i;   /* offset em unidades de MPI_INT */
+    }
+
+    MPI_Datatype upper_tri_type;
+    MPI_Type_indexed(n, blocklengths, displacements, MPI_INT, &upper_tri_type);
+    MPI_Type_commit(&upper_tri_type);
+
+    /* Uma única chamada envia toda a triangular superior */
+    MPI_Send(matrix, 1, upper_tri_type, 1, 0, MPI_COMM_WORLD);

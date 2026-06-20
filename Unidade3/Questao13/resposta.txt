@@ -1,0 +1,44 @@
+Questão 13 - Speedup e Eficiência da Ordenação Ímpar-Par
+=========================================================
+
+(a) O programa obtém speedups lineares?
+-----------------------------------------
+NÃO, em geral. A ordenação ímpar-par paralela executa p fases, cada fase com
+comunicação entre vizinhos. O overhead cresce com p.
+
+Speedup teórico máximo (Lei de Amdahl + overhead de comunicação):
+  T_serial(n) = O(n^2)  (bubble sort serial)
+  T_paralelo(n,p) = O(n^2/p) + O(n * p)  (computação + comunicação)
+
+Para n grande e p pequeno → speedup próximo a linear.
+Para p grande → comunicação domina → speedup sublinear.
+
+(b) É escalável?
+-----------------
+Depende. Se aumentarmos n proporcionalmente a p (escalabilidade fraca),
+a eficiência pode se manter. Veja itens (c) e (d).
+
+(c) É FORTEMENTE escalável?
+-----------------------------
+NÃO. Escalabilidade forte = manter eficiência com n fixo e p crescendo.
+O overhead de comunicação O(n*p) cresce com p enquanto n permanece fixo,
+fazendo a eficiência cair significativamente.
+Exemplos esperados (n=24000):
+  p=1:  S=1.0,  E=1.00
+  p=2:  S=1.8,  E=0.90
+  p=4:  S=3.2,  E=0.80
+  p=8:  S=5.5,  E=0.69
+  p=16: S=8.0,  E=0.50
+  p=24: S=9.5,  E=0.40
+
+(d) É FRACAMENTE escalável?
+-----------------------------
+POSSIVELMENTE SIM, se n for aumentado proporcionalmente a p.
+Escalabilidade fraca: eficiência se mantém quando n/p = constante.
+Para a ordenação ímpar-par, se n = c*p:
+  T_paralelo = O(c*p)^2/p + O(c*p * p) = O(c^2*p) + O(c*p^2)
+O segundo termo cresce com p^2, então a eficiência fraca também cai.
+Conclusão: a ordenação ímpar-par NÃO é fracamente escalável para p grande.
+
+Para n crescer suficientemente mais rápido que p (ex.: n = c*p^2), a
+escalabilidade fraca poderia ser mantida, mas isso limita o tamanho do problema.

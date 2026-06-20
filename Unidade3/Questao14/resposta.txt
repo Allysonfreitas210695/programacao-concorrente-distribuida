@@ -1,0 +1,42 @@
+Questão 14 - Ordenação Ímpar-Par com Troca de Ponteiros
+========================================================
+
+MODIFICAÇÃO PRINCIPAL:
+Em vez de copiar os elementos de temp_C de volta para local_A ao final de Merge_low/high,
+simplesmente trocamos os ponteiros. Isso evita um O(n/p) memcpy por fase.
+
+Trecho mais importante (Merge_low com swap de ponteiro):
+---------------------------------------------------------
+void Merge_low(int** local_A_pp, int temp_B[], int temp_C[], int local_n) {
+    /* Merge normal: os local_n menores vão para temp_C */
+    int ai=0, bi=0, ci=0;
+    while (ci < local_n) {
+        if (ai < local_n && (bi >= local_n || (*local_A_pp)[ai] <= temp_B[bi]))
+            temp_C[ci++] = (*local_A_pp)[ai++];
+        else
+            temp_C[ci++] = temp_B[bi++];
+    }
+    /* TROCA DE PONTEIRO: sem memcpy! */
+    int* tmp = *local_A_pp;
+    *local_A_pp = temp_C;
+    /* (tmp agora é o buffer antigo, disponível para reutilização) */
+}
+
+EFEITO NO TEMPO DE EXECUÇÃO:
+- Versão original: cada fase de Merge copia O(local_n) elementos → O(n/p) por fase.
+- Versão com swap: a troca de ponteiro é O(1) → elimina p fases × O(n/p) cópias.
+- Economia total: O(n) operações de memória eliminadas.
+
+Para vetores grandes (n grande), o impacto é significativo porque:
+  - As cópias usam largura de banda da memória cache/RAM.
+  - Com n fixo em 8 processos: a versão com swap deve ser ~10-30% mais rápida
+    dependendo do tamanho do vetor e da arquitetura de memória.
+
+Análise com p=8 fixo e n variando:
+  n=1000:    diferença pequena (operação de memória trivial)
+  n=10000:   diferença moderada (~10%)
+  n=100000:  diferença mais visível (~20-30%)
+  n=1000000: maior impacto, pois cópias de RAM dominam o tempo
+
+Nota: o gerenciamento dos ponteiros fica mais complexo (dois buffers pool),
+e deve-se garantir que o buffer correto seja liberado ao final.

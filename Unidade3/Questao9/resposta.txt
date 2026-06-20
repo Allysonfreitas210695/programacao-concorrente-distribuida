@@ -1,0 +1,26 @@
+Questão 9 - MPI_Type_contiguous
+================================
+
+MPI_Type_contiguous cria um novo tipo que representa 'count' elementos contíguos
+do tipo base. Isso permite usar count=1 no MPI_Scatter/MPI_Gather, passando o bloco
+inteiro de local_n elementos como uma única "unidade".
+
+Trecho mais importante (dentro de Read_vector e Print_vector):
+--------------------------------------------------------------
+    MPI_Datatype contig_type;
+    MPI_Type_contiguous(local_n, MPI_DOUBLE, &contig_type);
+    MPI_Type_commit(&contig_type);
+
+    /* Scatter com count=1 no novo tipo (equivalente a count=local_n em MPI_DOUBLE) */
+    MPI_Scatter(a,       1, contig_type,
+                local_a, 1, contig_type,
+                0, comm);
+
+    MPI_Type_free(&contig_type);
+
+Equivalência:
+  MPI_Scatter(a, 1, contig_type, ...) 
+  ≡ MPI_Scatter(a, local_n, MPI_DOUBLE, ...)
+
+A vantagem de usar tipos derivados é que o código fica mais expressivo e 
+facilita generalizações para tipos mais complexos.

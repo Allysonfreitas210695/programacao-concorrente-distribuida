@@ -1,0 +1,27 @@
+Questão 2 - Saída ordenada por rank
+=====================================
+
+O problema original deixa cada processo imprimir livremente, resultando em saída desordenada.
+
+SOLUÇÃO (Token Ring / Passing):
+Usar um "token" passado sequencialmente de processo em processo.
+- Processo 0 imprime e envia o token para o processo 1.
+- Cada processo q (q > 0) espera receber o token do processo q-1,
+  imprime sua mensagem e repassa o token para q+1.
+
+Trecho mais importante:
+-----------------------
+    if (my_rank == 0) {
+        printf("Proc %d > ...\n", my_rank);
+        fflush(stdout);
+        MPI_Send(&token, 1, MPI_INT, 1, 0, MPI_COMM_WORLD);
+    } else {
+        MPI_Recv(&token, 1, MPI_INT, my_rank - 1, 0, MPI_COMM_WORLD, &status);
+        printf("Proc %d > ...\n", my_rank);
+        fflush(stdout);
+        if (my_rank < comm_sz - 1)
+            MPI_Send(&token, 1, MPI_INT, my_rank + 1, 0, MPI_COMM_WORLD);
+    }
+
+Nota: o fflush(stdout) é essencial para garantir que a saída seja visível
+antes de passar o token.

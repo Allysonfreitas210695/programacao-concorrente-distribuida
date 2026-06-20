@@ -1,0 +1,58 @@
+Questão 12 - Cronometragem da Regra Trapezoidal
+================================================
+
+(a) Critério para escolha de n
+-------------------------------
+n deve ser grande o suficiente para que o tempo de computação seja mensurável
+e domine o overhead de comunicação (MPI_Reduce). 
+Critério usado: n >= 100 * p para que cada processo tenha trabalho suficiente.
+Para comparações justas entre diferentes p, mantemos n fixo.
+Sugestão: n = 10^8 a 10^9 (garante tempo de computação na ordem de segundos).
+
+(b) Tempos mínimos vs médios vs medianos
+-----------------------------------------
+- Executar múltiplas repetições (ex.: 10 runs) por configuração (n, p).
+- O tempo MÍNIMO elimina interferências do sistema (jitter de rede, escalonamento).
+  É o melhor indicador do desempenho real do algoritmo.
+- O tempo MÉDIO pode ser inflado por outliers (picos de latência).
+- O tempo MEDIANO é mais robusto que a média, mas o mínimo ainda é preferido
+  em benchmarking HPC (metodologia de Hoefler & Belli, 2015).
+- Esperado: mínimo < mediano < médio quando há variação de sistema.
+
+(c) Speedup
+-----------
+S(p) = T_serial / T_paralelo(p)
+     = T(p=1)  / T(p)
+
+Exemplo esperado (valores hipotéticos com n=10^9):
+  p=1:  T=10.0s → S=1.0
+  p=2:  T=5.1s  → S=1.96
+  p=4:  T=2.6s  → S=3.85
+  p=8:  T=1.35s → S=7.4
+  p=16: T=0.72s → S=13.9
+  p=24: T=0.51s → S=19.6
+
+(d) Eficiência
+--------------
+E(p) = S(p) / p
+
+  p=1:  E=1.00  (100%)
+  p=2:  E=0.98  (98%)
+  p=4:  E=0.96  (96%)
+  p=8:  E=0.93  (93%)
+  p=16: E=0.87  (87%)
+  p=24: E=0.82  (82%)
+
+(e) Escalabilidade
+------------------
+A regra trapezoidal é FORTEMENTE ESCALÁVEL se a eficiência se mantém
+aproximadamente constante com p crescente e n fixo.
+
+Com n grande (carga computacional dominante), a comunicação (MPI_Reduce = O(log p))
+é desprezível, então a eficiência decresce lentamente → o programa É escalável
+para n suficientemente grande.
+
+Para n pequeno, a comunicação domina e a eficiência cai rapidamente → não escalável.
+
+Conclusão: a regra trapezoidal com MPI_Reduce é FORTEMENTE ESCALÁVEL
+para n >> p (cada processo tem muitos trapézios).

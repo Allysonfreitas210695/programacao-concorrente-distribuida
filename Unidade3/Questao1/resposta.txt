@@ -1,0 +1,35 @@
+Questão 1 - Regra Trapezoidal com divisão não-uniforme
+=======================================================
+
+O problema original assume que n é divisível por comm_sz, calculando:
+    local_n = n / comm_sz  (divisão inteira, perdendo o resto)
+
+SOLUÇÃO:
+Calcular base_n = n / comm_sz e remainder = n % comm_sz.
+- Os 'remainder' primeiros processos (rank < remainder) recebem (base_n + 1) trapézios.
+- Os demais recebem base_n trapézios.
+
+Cálculo do ponto inicial local_a de cada processo:
+- Se rank < remainder:
+    local_n = base_n + 1
+    local_a = a + rank * local_n * h
+- Senão:
+    local_n = base_n
+    local_a = a + (rank * base_n + remainder) * h
+
+Isso garante que a diferença entre qualquer dois processos seja no máximo 1 trapézio,
+distribuição justa e cobertura total do intervalo [a, b].
+
+Trecho mais importante da modificação (em main):
+------------------------------------------------
+    int base_n    = n / comm_sz;
+    int remainder = n % comm_sz;
+
+    if (my_rank < remainder) {
+        local_n = base_n + 1;
+        local_a = a + my_rank * local_n * h;
+    } else {
+        local_n = base_n;
+        local_a = a + (my_rank * base_n + remainder) * h;
+    }
+    local_b = local_a + local_n * h;

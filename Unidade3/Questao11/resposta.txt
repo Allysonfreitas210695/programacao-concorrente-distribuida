@@ -1,0 +1,30 @@
+Questão 11 - MPI_Pack e MPI_Unpack
+===================================
+
+MPI_Pack copia dados de tipos diferentes em um buffer contíguo.
+MPI_Unpack extrai os dados do buffer na mesma ordem em que foram empacotados.
+O tipo MPI_PACKED é usado no MPI_Bcast para transmitir o buffer empacotado.
+
+Diferença em relação a usar MPI_Bcast separado para cada variável:
+- 3 MPI_Bcasts separados = 3 chamadas de comunicação coletiva
+- Pack + 1 MPI_Bcast + Unpack = 1 chamada de comunicação coletiva
+
+Trecho mais importante (Get_input):
+------------------------------------
+Processo 0 - empacota:
+    position = 0;
+    MPI_Pack(a_p, 1, MPI_DOUBLE, pack_buf, 100, &position, MPI_COMM_WORLD);
+    MPI_Pack(b_p, 1, MPI_DOUBLE, pack_buf, 100, &position, MPI_COMM_WORLD);
+    MPI_Pack(n_p, 1, MPI_INT,    pack_buf, 100, &position, MPI_COMM_WORLD);
+
+Broadcast:
+    MPI_Bcast(pack_buf, 100, MPI_PACKED, 0, MPI_COMM_WORLD);
+
+Outros processos - desempacota na mesma ordem:
+    position = 0;
+    MPI_Unpack(pack_buf, 100, &position, a_p, 1, MPI_DOUBLE, MPI_COMM_WORLD);
+    MPI_Unpack(pack_buf, 100, &position, b_p, 1, MPI_DOUBLE, MPI_COMM_WORLD);
+    MPI_Unpack(pack_buf, 100, &position, n_p, 1, MPI_INT,    MPI_COMM_WORLD);
+
+A variável 'position' é automaticamente atualizada a cada chamada para
+apontar para o próximo slot disponível no buffer.

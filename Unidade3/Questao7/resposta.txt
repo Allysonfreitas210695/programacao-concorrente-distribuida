@@ -1,0 +1,27 @@
+Questão 7 - MPI_Scatterv e MPI_Gatherv
+=======================================
+
+Diferença para a Questão 4:
+- Q4 usa MPI_Scatter/MPI_Gather → exige que cada processo receba exatamente o mesmo
+  número de elementos → requer n divisível por comm_sz.
+- Q7 usa MPI_Scatterv/MPI_Gatherv → permite tamanhos diferentes por processo.
+
+Parâmetros adicionais necessários:
+- sendcounts[q]: número de elementos enviados/recebidos pelo processo q
+- displs[q]: deslocamento (offset) no vetor global para o processo q
+
+Trecho mais importante (cálculo de sendcounts e displs):
+---------------------------------------------------------
+    int base = n / comm_sz, rem = n % comm_sz;
+    int offset = 0;
+    for (int q = 0; q < comm_sz; q++) {
+        sendcounts[q] = (q < rem) ? base + 1 : base;
+        displs[q]     = offset;
+        offset       += sendcounts[q];
+    }
+
+    MPI_Scatterv(x, sendcounts, displs, MPI_DOUBLE,
+                 local_x, local_n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    MPI_Gatherv(local_x, local_n, MPI_DOUBLE,
+                result_x, sendcounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);

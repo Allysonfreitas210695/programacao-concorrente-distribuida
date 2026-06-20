@@ -1,0 +1,817 @@
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║         GUIA COMPLETO DOS MÉTODOS MPI USADOS NA LISTA                          ║
+║         PEX1272 - Programação Concorrente e Distribuída - UFERSA               ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+Cada função MPI usada nas questões está explicada aqui com:
+  - Assinatura completa
+  - O que cada parâmetro significa
+  - Exemplo concreto baseado nas questões da lista
+  - Quando usar / quando NÃO usar
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. MPI_Init
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  int MPI_Init(int *argc, char ***argv)
+
+  PARÂMETROS:
+    argc   → ponteiro para o argc do main (pode ser NULL)
+    argv   → ponteiro para o argv do main (pode ser NULL)
+
+  O QUE FAZ:
+    Inicializa o ambiente MPI. DEVE ser a primeira chamada MPI do programa.
+    Aloca recursos internos, configura comunicadores, inicializa a rede.
+
+  EXEMPLO (Q1, Q2, Q4...):
+    int main(int argc, char* argv[]) {
+        MPI_Init(&argc, &argv);   // inicializa passando argc e argv
+        // ou
+        MPI_Init(NULL, NULL);     // quando nao usa argumentos de linha de comando
+        ...
+    }
+
+  QUANDO USAR: sempre, no início de todo programa MPI.
+  ERRO COMUM: chamar qualquer outra função MPI antes do MPI_Init.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. MPI_Finalize
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  int MPI_Finalize(void)
+
+  PARÂMETROS: nenhum
+
+  O QUE FAZ:
+    Encerra o ambiente MPI. Libera todos os recursos alocados pelo MPI.
+    Após MPI_Finalize, nenhuma outra função MPI pode ser chamada.
+
+  EXEMPLO:
+    MPI_Finalize();
+    return 0;   // sempre após o Finalize
+
+  QUANDO USAR: sempre, no final de todo programa MPI.
+  ERRO COMUM: retornar do main sem chamar MPI_Finalize (causa comportamento indefinido).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. MPI_Comm_rank
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  int MPI_Comm_rank(MPI_Comm comm, int *rank)
+
+  PARÂMETROS:
+    comm   → o comunicador (quase sempre MPI_COMM_WORLD = todos os processos)
+    rank   → SAÍDA: recebe o número identificador deste processo (0, 1, 2, ...)
+
+  O QUE FAZ:
+    Descobre o número (rank) do processo atual dentro do comunicador.
+    Cada processo tem um rank único: 0, 1, ..., comm_sz-1.
+
+  EXEMPLO (todas as questões):
+    int my_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    // Se rodando com 4 processos:
+    // Processo 0: my_rank = 0
+    // Processo 1: my_rank = 1
+    // Processo 2: my_rank = 2
+    // Processo 3: my_rank = 3
+
+  USO TÍPICO:
+    if (my_rank == 0) {
+        // só o processo 0 lê entrada ou imprime resultado final
+    }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. MPI_Comm_size
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  int MPI_Comm_size(MPI_Comm comm, int *size)
+
+  PARÂMETROS:
+    comm   → o comunicador
+    size   → SAÍDA: recebe o número total de processos no comunicador
+
+  O QUE FAZ:
+    Descobre quantos processos estão rodando no total.
+
+  EXEMPLO (Q1 - para dividir os trapézios):
+    int comm_sz;
+    MPI_Comm_size(MPI_COMM_WORLD, &comm_sz);
+    // Se rodando com "mpiexec -n 4 ./programa": comm_sz = 4
+
+    // Uso na Q1: dividir os trapézios
+    int base = n / comm_sz;      // cada processo pega ao menos 'base' trapézios
+    int resto = n % comm_sz;     // os primeiros 'resto' processos pegam 1 a mais
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. MPI_Send
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  int MPI_Send(void *buf, int count, MPI_Datatype datatype,
+               int dest, int tag, MPI_Comm comm)
+
+  PARÂMETROS:
+    buf      → ponteiro para os dados a enviar
+    count    → quantidade de elementos do tipo datatype a enviar
+    datatype → tipo dos dados (MPI_INT, MPI_DOUBLE, MPI_CHAR, MPI_PACKED...)
+    dest     → rank do processo DESTINO
+    tag      → rótulo da mensagem (qualquer inteiro >= 0; usado para distinguir mensagens)
+    comm     → comunicador
+
+  O QUE FAZ:
+    Envia 'count' elementos do tipo 'datatype' a partir de 'buf' para o processo 'dest'.
+    Pode bloquear ou não, dependendo da implementação (geralmente bloqueia até
+    o buffer poder ser reutilizado).
+
+  EXEMPLO (Q2 - token ring para saída ordenada):
+    int token = 1;
+    // Processo 0 envia token para o processo 1
+    MPI_Send(&token,    // o que enviar (endereço da variável token)
+             1,         // quantidade: 1 inteiro
+             MPI_INT,   // tipo: inteiro
+             1,         // destino: processo de rank 1
+             0,         // tag: 0 (não precisamos distinguir mensagens aqui)
+             MPI_COMM_WORLD);
+
+  EXEMPLO (Q6 - anel):
+    // Processo q envia para q+1 (fechando o anel no último)
+    int dest = (my_rank + 1) % comm_sz;
+    MPI_Send(&running, 1, MPI_DOUBLE, dest, 10, MPI_COMM_WORLD);
+
+  TAGS COMUNS:
+    0   → mensagem genérica
+    10  → comunicação de fase 1
+    99  → token de sincronização
+    (qualquer valor de 0 a 32767 é seguro)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. MPI_Recv
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  int MPI_Recv(void *buf, int count, MPI_Datatype datatype,
+               int source, int tag, MPI_Comm comm, MPI_Status *status)
+
+  PARÂMETROS:
+    buf      → buffer onde os dados recebidos serão armazenados
+    count    → tamanho MÁXIMO do buffer (não precisa ser exato)
+    datatype → tipo dos dados esperados
+    source   → rank do processo REMETENTE (ou MPI_ANY_SOURCE para qualquer um)
+    tag      → tag esperada (ou MPI_ANY_TAG para qualquer tag)
+    comm     → comunicador
+    status   → SAÍDA: informações sobre a mensagem recebida (use MPI_STATUS_IGNORE se não precisar)
+
+  O QUE FAZ:
+    BLOQUEIA o processo até receber uma mensagem que combine com source e tag.
+    Armazena os dados em 'buf'.
+
+  EXEMPLO (Q2 - token ring):
+    int token;
+    // Processo q espera o token do processo q-1
+    MPI_Recv(&token,           // onde guardar
+             1,                // tamanho máximo do buffer: 1 inteiro
+             MPI_INT,          // tipo esperado
+             my_rank - 1,      // remetente: processo anterior
+             0,                // tag: mesmo que o Send
+             MPI_COMM_WORLD,
+             MPI_STATUS_IGNORE); // não preciso dos metadados da mensagem
+
+  EXEMPLO com MPI_ANY_SOURCE (recebe de qualquer processo):
+    MPI_Status status;
+    MPI_Recv(&valor, 1, MPI_DOUBLE, MPI_ANY_SOURCE, MPI_ANY_TAG,
+             MPI_COMM_WORLD, &status);
+    printf("Recebi do processo %d\n", status.MPI_SOURCE);
+
+  MPI_STATUS_IGNORE: use quando não precisa saber de onde veio ou qual tag.
+  MPI_ANY_SOURCE:    use quando qualquer processo pode enviar (ex: coletar resultados).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. MPI_Bcast
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  int MPI_Bcast(void *buffer, int count, MPI_Datatype datatype,
+                int root, MPI_Comm comm)
+
+  PARÂMETROS:
+    buffer   → NO PROCESSO ROOT: dados a enviar. NOS OUTROS: buffer que receberá os dados
+    count    → quantidade de elementos
+    datatype → tipo dos dados
+    root     → rank do processo que possui os dados originais
+    comm     → comunicador
+
+  O QUE FAZ:
+    O processo 'root' envia 'buffer' para TODOS os outros processos.
+    É uma operação COLETIVA: TODOS os processos devem chamar MPI_Bcast.
+    Internamente usa árvore de comunicação O(log p) → mais eficiente que p-1 MPI_Sends.
+
+  EXEMPLO (Q1 - distribuir a, b e n para todos):
+    double a, b;
+    int n;
+    if (my_rank == 0) {
+        scanf("%lf %lf %d", &a, &b, &n); // só proc 0 lê
+    }
+    // Agora todos precisam saber a, b e n:
+    MPI_Bcast(&a, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD); // proc 0 envia 'a' para todos
+    MPI_Bcast(&b, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD); // proc 0 envia 'b' para todos
+    MPI_Bcast(&n, 1, MPI_INT,    0, MPI_COMM_WORLD); // proc 0 envia 'n' para todos
+    // Após o Bcast, TODOS os processos têm os mesmos valores de a, b e n
+
+  EXEMPLO (Q11 - com buffer empacotado):
+    MPI_Bcast(pack_buf, 100, MPI_PACKED, 0, MPI_COMM_WORLD);
+    // MPI_PACKED é o tipo especial para buffers criados com MPI_Pack
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. MPI_Reduce
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  int MPI_Reduce(void *sendbuf, void *recvbuf, int count,
+                 MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm)
+
+  PARÂMETROS:
+    sendbuf  → buffer com o valor LOCAL de cada processo
+    recvbuf  → buffer de SAÍDA (só usado no processo root)
+    count    → número de elementos
+    datatype → tipo dos dados
+    op       → operação de redução:
+                MPI_SUM  → soma todos os valores
+                MPI_MAX  → pega o máximo
+                MPI_MIN  → pega o mínimo
+                MPI_PROD → multiplica todos
+                MPI_LAND → AND lógico
+    root     → processo que receberá o resultado
+    comm     → comunicador
+
+  O QUE FAZ:
+    Aplica a operação 'op' sobre os valores de 'sendbuf' de TODOS os processos
+    e coloca o resultado em 'recvbuf' do processo 'root'.
+
+  EXEMPLO (Q1 - somar as integrais parciais):
+    double local_int, total_int;
+    local_int = Trap(local_a, local_b, local_n, h); // cada processo calcula sua parte
+
+    MPI_Reduce(&local_int,   // o que cada processo contribui
+               &total_int,   // onde guardar o resultado (só no proc 0)
+               1,            // 1 elemento
+               MPI_DOUBLE,   // tipo double
+               MPI_SUM,      // operação: SOMAR todas as contribuições
+               0,            // resultado vai para o processo 0
+               MPI_COMM_WORLD);
+    // total_int = local_int[proc0] + local_int[proc1] + ... + local_int[procN-1]
+
+  EXEMPLO (Q12 - pegar o tempo máximo):
+    MPI_Reduce(&elapsed, &max_elapsed, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    // O processo mais lento define o tempo total do programa paralelo
+
+  EXEMPLO (Q4 - somar quadrados para norma):
+    MPI_Reduce(&local_norm_sq, &global_norm_sq, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
+    // global_norm_sq = soma de todos local_norm_sq → sqrt(global_norm_sq) = ||y||
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+9. MPI_Allreduce
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  int MPI_Allreduce(void *sendbuf, void *recvbuf, int count,
+                    MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)
+
+  PARÂMETROS: iguais ao MPI_Reduce, MAS sem parâmetro 'root'.
+
+  DIFERENÇA do MPI_Reduce:
+    MPI_Reduce  → resultado vai só para o processo root
+    MPI_Allreduce → resultado vai para TODOS os processos
+
+  EXEMPLO (verificação de erro em Q9):
+    int local_ok = 1, ok;
+    MPI_Allreduce(&local_ok, &ok, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+    // Se qualquer processo tiver local_ok=0, ok=0 em TODOS
+    // MPI_MIN: se algum processo falhou (0), o mínimo é 0 → todos sabem do erro
+
+  QUANDO USAR vs MPI_Reduce:
+    Use MPI_Allreduce quando TODOS os processos precisam do resultado final
+    (ex: verificar condição de parada, checar erro global).
+    Use MPI_Reduce quando só o processo 0 precisa (ex: imprimir resultado).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+10. MPI_Scatter
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  int MPI_Scatter(void *sendbuf, int sendcount, MPI_Datatype sendtype,
+                  void *recvbuf, int recvcount, MPI_Datatype recvtype,
+                  int root, MPI_Comm comm)
+
+  PARÂMETROS:
+    sendbuf   → array COMPLETO no processo root (ignorado nos outros)
+    sendcount → quantos elementos enviar para CADA processo (não o total!)
+    sendtype  → tipo dos elementos a enviar
+    recvbuf   → buffer LOCAL onde cada processo recebe sua parte
+    recvcount → quantos elementos cada processo recebe (normalmente = sendcount)
+    recvtype  → tipo dos elementos recebidos
+    root      → quem tem o array completo e distribui
+    comm      → comunicador
+
+  O QUE FAZ:
+    Divide o array do root em fatias iguais de 'sendcount' elementos
+    e envia uma fatia para cada processo.
+    LIMITAÇÃO: todas as fatias têm o mesmo tamanho. Use MPI_Scatterv para tamanhos diferentes.
+
+  EXEMPLO (Q4 - distribuir vetor x entre os processos):
+    // n=12 elementos, 3 processos → cada um recebe 4
+    double x[12] = {1,2,3,4,5,6,7,8,9,10,11,12};
+    double local_x[4];
+
+    MPI_Scatter(x,          // array completo (só proc 0 precisa ter os dados)
+                4,           // enviar 4 elementos para cada processo
+                MPI_DOUBLE,  // tipo
+                local_x,     // onde cada processo guarda sua parte
+                4,           // receber 4 elementos
+                MPI_DOUBLE,
+                0,           // proc 0 é o root (quem distribui)
+                MPI_COMM_WORLD);
+    // Proc 0: local_x = {1,2,3,4}
+    // Proc 1: local_x = {5,6,7,8}
+    // Proc 2: local_x = {9,10,11,12}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+11. MPI_Gather
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  int MPI_Gather(void *sendbuf, int sendcount, MPI_Datatype sendtype,
+                 void *recvbuf, int recvcount, MPI_Datatype recvtype,
+                 int root, MPI_Comm comm)
+
+  PARÂMETROS:
+    sendbuf   → array LOCAL de cada processo (todos enviam)
+    sendcount → quantos elementos cada processo envia
+    sendtype  → tipo dos elementos
+    recvbuf   → buffer no root que recebe TUDO (ignorado nos outros processos)
+    recvcount → quantos elementos receber DE CADA processo (não o total!)
+    recvtype  → tipo dos elementos recebidos
+    root      → quem coleta
+    comm      → comunicador
+
+  O QUE FAZ:
+    O inverso do MPI_Scatter. Coleta os arrays locais de todos os processos
+    e os concatena no root. Mesma limitação: todos enviam o mesmo tamanho.
+
+  EXEMPLO (Q4 - coletar resultado de x*escalar):
+    double local_x[4];   // resultado local após multiplicar pelo escalar
+    double result_x[12]; // só proc 0 precisa deste buffer
+
+    MPI_Gather(local_x,    // o que cada processo envia
+               4,           // cada processo envia 4 elementos
+               MPI_DOUBLE,
+               result_x,    // onde proc 0 coleta tudo
+               4,           // recebe 4 de cada processo
+               MPI_DOUBLE,
+               0,           // proc 0 coleta
+               MPI_COMM_WORLD);
+    // result_x[0..3]  = local_x do proc 0
+    // result_x[4..7]  = local_x do proc 1
+    // result_x[8..11] = local_x do proc 2
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+12. MPI_Scatterv
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  int MPI_Scatterv(void *sendbuf, int *sendcounts, int *displs,
+                   MPI_Datatype sendtype,
+                   void *recvbuf, int recvcount, MPI_Datatype recvtype,
+                   int root, MPI_Comm comm)
+
+  PARÂMETROS NOVOS (em relação ao MPI_Scatter):
+    sendcounts → ARRAY com quantos elementos enviar para CADA processo
+                 sendcounts[0] = quanto o proc 0 recebe
+                 sendcounts[1] = quanto o proc 1 recebe
+                 ...
+    displs     → ARRAY com o deslocamento (offset) no sendbuf para cada processo
+                 displs[0] = onde começa a fatia do proc 0
+                 displs[1] = onde começa a fatia do proc 1
+                 ...
+    recvcount  → quantos elementos ESTE processo recebe (= sendcounts[my_rank])
+
+  O QUE FAZ:
+    Igual ao MPI_Scatter, mas cada processo pode receber um número DIFERENTE
+    de elementos. Resolve o problema de n não divisível por comm_sz.
+
+  EXEMPLO (Q7 - n=10, p=3):
+    // n=10, p=3 → proc 0 recebe 4, proc 1 recebe 3, proc 2 recebe 3
+    int sendcounts[3] = {4, 3, 3};
+    int displs[3]     = {0, 4, 7};  // onde começa cada fatia no array x
+    //                               proc0 começa em x[0]
+    //                               proc1 começa em x[4]
+    //                               proc2 começa em x[7]
+
+    MPI_Scatterv(x,           // array completo no root
+                 sendcounts,  // quantos para cada processo
+                 displs,      // onde começa cada fatia
+                 MPI_DOUBLE,
+                 local_x,     // buffer local de cada processo
+                 sendcounts[my_rank], // este processo recebe sendcounts[my_rank] elementos
+                 MPI_DOUBLE,
+                 0, MPI_COMM_WORLD);
+
+  COMO CALCULAR sendcounts e displs (código genérico):
+    int base = n / p, rem = n % p, offset = 0;
+    for (int q = 0; q < p; q++) {
+        sendcounts[q] = (q < rem) ? base + 1 : base;
+        displs[q]     = offset;
+        offset       += sendcounts[q];
+    }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+13. MPI_Gatherv
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  int MPI_Gatherv(void *sendbuf, int sendcount, MPI_Datatype sendtype,
+                  void *recvbuf, int *recvcounts, int *displs,
+                  MPI_Datatype recvtype, int root, MPI_Comm comm)
+
+  PARÂMETROS NOVOS:
+    sendcount  → quantos elementos ESTE processo envia (variável por processo)
+    recvcounts → ARRAY: quantos elementos receber de cada processo (no root)
+    displs     → ARRAY: onde colocar no recvbuf a parte de cada processo
+
+  O QUE FAZ:
+    Inverso do MPI_Scatterv. Coleta partes de tamanhos diferentes de cada processo.
+
+  EXEMPLO (Q7 - coletar resultado com n=10, p=3):
+    // Mesmo sendcounts e displs calculados antes
+    MPI_Gatherv(local_x,             // o que este processo envia
+                sendcounts[my_rank], // quantos elementos ele tem
+                MPI_DOUBLE,
+                result_x,            // onde o root coleta tudo
+                sendcounts,          // quantos receber de cada um
+                displs,              // onde colocar cada parte
+                MPI_DOUBLE,
+                0, MPI_COMM_WORLD);
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+14. MPI_Sendrecv_replace
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  int MPI_Sendrecv_replace(void *buf, int count, MPI_Datatype datatype,
+                           int dest, int sendtag,
+                           int source, int recvtag,
+                           MPI_Comm comm, MPI_Status *status)
+
+  PARÂMETROS:
+    buf      → buffer usado TANTO para enviar QUANTO para receber (in-place!)
+    count    → número de elementos
+    datatype → tipo dos dados
+    dest     → processo destino (para onde envio)
+    sendtag  → tag da mensagem enviada
+    source   → processo origem (de onde recebo)
+    recvtag  → tag da mensagem recebida
+    comm     → comunicador
+    status   → informações sobre a mensagem recebida
+
+  O QUE FAZ:
+    Envia os dados de 'buf' para 'dest' E recebe de 'source' para o MESMO 'buf'.
+    A variável é substituída pelo valor recebido (por isso "replace").
+    Evita deadlock que aconteceria com Send + Recv separados quando todos enviam.
+
+  EXEMPLO (Q6 - anel allreduce):
+    int dest   = (my_rank + 1) % comm_sz; // próximo no anel
+    int source = (my_rank - 1 + comm_sz) % comm_sz; // anterior no anel
+    int temp_val = my_val;
+
+    for (int i = 1; i < comm_sz; i++) {
+        MPI_Sendrecv_replace(
+            &temp_val,        // envia temp_val para dest E recebe de source para temp_val
+            1, MPI_INT,
+            dest,   0,        // destino e tag de envio
+            source, 0,        // origem e tag de recepção
+            MPI_COMM_WORLD, &status);
+        sum += temp_val;      // temp_val agora tem o valor do processo anterior no anel
+    }
+
+  POR QUE NÃO USAR Send + Recv SEPARADOS:
+    // DEADLOCK! Todos tentam enviar antes de receber:
+    MPI_Send(&val, 1, MPI_INT, dest,   0, comm); // todos bloqueados aqui!
+    MPI_Recv(&val, 1, MPI_INT, source, 0, comm, &status);
+    // Ninguém chega no Recv pois todos estão presos no Send
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+15. MPI_Scan
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  int MPI_Scan(void *sendbuf, void *recvbuf, int count,
+               MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)
+
+  PARÂMETROS:
+    sendbuf  → valor local de cada processo
+    recvbuf  → recebe o resultado da soma de prefixo DESTE processo
+    count    → número de elementos
+    datatype → tipo
+    op       → operação (MPI_SUM, MPI_MAX, MPI_MIN, etc.)
+    comm     → comunicador
+
+  O QUE FAZ:
+    Para cada processo q, calcula a operação acumulada de todos os processos
+    com rank 0 até q (inclusive).
+    Processo 0 recebe: valor[0]
+    Processo 1 recebe: valor[0] op valor[1]
+    Processo 2 recebe: valor[0] op valor[1] op valor[2]
+    ...
+
+  DIFERENÇA do MPI_Reduce:
+    MPI_Reduce:  SÓ o root recebe o resultado total
+    MPI_Scan:    CADA processo recebe sua soma de prefixo parcial
+
+  EXEMPLO (Q5c - soma de prefixos):
+    double my_val = 5.0; // cada processo tem um valor
+    double prefix_result;
+
+    MPI_Scan(&my_val,        // meu valor local
+             &prefix_result, // onde guardo meu prefixo
+             1, MPI_DOUBLE, MPI_SUM,
+             MPI_COMM_WORLD);
+
+    // Com 4 processos, valores = {3, 7, 2, 5}:
+    // Proc 0: prefix_result = 3
+    // Proc 1: prefix_result = 3+7 = 10
+    // Proc 2: prefix_result = 3+7+2 = 12
+    // Proc 3: prefix_result = 3+7+2+5 = 17
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+16. MPI_Barrier
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  int MPI_Barrier(MPI_Comm comm)
+
+  PARÂMETROS:
+    comm → comunicador
+
+  O QUE FAZ:
+    Ponto de sincronização global. NENHUM processo passa desta linha
+    até que TODOS os processos a tenham chamado.
+
+  EXEMPLO (Q12 - garantir medição justa de tempo):
+    MPI_Barrier(MPI_COMM_WORLD); // todos chegam aqui antes de começar a medir
+    start = MPI_Wtime();
+    // ... computação ...
+    finish = MPI_Wtime();
+
+  EXEMPLO (Q5b - sincronizar fases do prefix sum):
+    for (int half = 1; half < comm_sz; half <<= 1) {
+        // envia e recebe...
+        MPI_Barrier(comm); // aguarda TODOS terminarem esta fase antes da próxima
+    }
+
+  QUANDO NÃO USAR:
+    MPI_Barrier tem custo. Não use desnecessariamente dentro de loops críticos.
+    Operações coletivas como MPI_Bcast e MPI_Reduce já sincronizam implicitamente.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+17. MPI_Wtime
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  double MPI_Wtime(void)
+
+  RETORNO: tempo em segundos (ponto flutuante) desde algum ponto fixo no passado.
+
+  O QUE FAZ:
+    Retorna o "wall clock time" — o tempo real decorrido (não tempo de CPU).
+    A subtração de dois MPI_Wtime() dá o tempo decorrido entre as chamadas.
+
+  EXEMPLO (Q12 - medir tempo de execução):
+    MPI_Barrier(MPI_COMM_WORLD);
+    double start  = MPI_Wtime();
+
+    // ... código que queremos medir ...
+
+    double finish  = MPI_Wtime();
+    double elapsed = finish - start;    // tempo deste processo
+
+    // O tempo do programa é o do processo mais lento:
+    double max_time;
+    MPI_Reduce(&elapsed, &max_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    if (my_rank == 0)
+        printf("Tempo total: %.6f segundos\n", max_time);
+
+  POR QUE MPI_Wtime E NÃO clock()?
+    clock() mede tempo de CPU deste processo.
+    MPI_Wtime mede tempo real (wall clock), que inclui espera por comunicação.
+    Em programas paralelos, o tempo real é o que importa.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+18. MPI_Type_contiguous
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  int MPI_Type_contiguous(int count, MPI_Datatype oldtype, MPI_Datatype *newtype)
+
+  PARÂMETROS:
+    count    → quantos elementos do tipo base formam o novo tipo
+    oldtype  → tipo base (ex: MPI_DOUBLE)
+    newtype  → SAÍDA: o novo tipo derivado criado
+
+  O QUE FAZ:
+    Cria um novo tipo MPI que representa 'count' elementos contíguos de 'oldtype'.
+    Permite usar count=1 em Scatter/Gather em vez de count=local_n.
+
+  EXEMPLO (Q9 - local_n=4 doubles por processo):
+    MPI_Datatype bloco_de_4_doubles;
+    MPI_Type_contiguous(4, MPI_DOUBLE, &bloco_de_4_doubles);
+    MPI_Type_commit(&bloco_de_4_doubles); // OBRIGATÓRIO antes de usar!
+
+    // Antes:  MPI_Scatter(x, 4, MPI_DOUBLE, local_x, 4, MPI_DOUBLE, 0, comm)
+    // Depois: MPI_Scatter(x, 1, bloco_de_4_doubles, local_x, 1, bloco_de_4_doubles, 0, comm)
+    // Semanticamente idênticos, mas o segundo trata o bloco como 1 unidade
+
+    MPI_Type_free(&bloco_de_4_doubles); // libera quando não precisar mais
+
+  REGRA: sempre chamar MPI_Type_commit() antes de usar e MPI_Type_free() depois.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+19. MPI_Type_indexed
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  int MPI_Type_indexed(int count,
+                       int array_of_blocklengths[],
+                       int array_of_displacements[],
+                       MPI_Datatype oldtype,
+                       MPI_Datatype *newtype)
+
+  PARÂMETROS:
+    count                  → número de blocos (número de linhas no caso da matriz)
+    array_of_blocklengths  → array: quantos elementos em cada bloco
+    array_of_displacements → array: onde começa cada bloco (em unidades de oldtype, NÃO bytes!)
+    oldtype                → tipo base dos elementos
+    newtype                → SAÍDA: o novo tipo derivado
+
+  O QUE FAZ:
+    Cria um tipo que seleciona blocos de tamanhos e posições ARBITRÁRIAS de um array.
+    Diferente do MPI_Type_create_struct: deslocamentos em unidades do tipo base, não bytes.
+    Ideal para padrões irregulares como a triangular superior de uma matriz.
+
+  EXEMPLO (Q10 - triangular superior de matriz 4x4):
+    // Linha i: começa em i*n+i, tem (n-i) elementos
+    int n = 4;
+    int blocklengths[4]  = {4, 3, 2, 1};      // elementos por linha
+    int displacements[4] = {0, 5, 10, 15};     // offset em unidades de MPI_INT
+    //                       0*4+0=0, 1*4+1=5, 2*4+2=10, 3*4+3=15
+
+    MPI_Datatype tri_type;
+    MPI_Type_indexed(4,              // 4 blocos (4 linhas)
+                     blocklengths,
+                     displacements,
+                     MPI_INT,
+                     &tri_type);
+    MPI_Type_commit(&tri_type);
+
+    // Envia todos os elementos {0,1,2,3,5,6,7,10,11,15} de uma vez:
+    MPI_Send(matrix, 1, tri_type, 1, 0, MPI_COMM_WORLD);
+    MPI_Type_free(&tri_type);
+
+  ATENÇÃO: deslocamentos em unidades do tipo base (int = 4 bytes cada),
+           então displacement=5 significa "pular 5 inteiros" = 20 bytes.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+20. MPI_Pack
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  int MPI_Pack(void *inbuf, int incount, MPI_Datatype datatype,
+               void *outbuf, int outsize, int *position, MPI_Comm comm)
+
+  PARÂMETROS:
+    inbuf    → dados a empacotar
+    incount  → quantidade de elementos
+    datatype → tipo dos dados
+    outbuf   → buffer de saída onde os dados são copiados (acumulados)
+    outsize  → tamanho total do buffer outbuf em bytes
+    position → IN/OUT: posição atual no buffer. Atualizado automaticamente.
+    comm     → comunicador
+
+  O QUE FAZ:
+    Copia os dados de 'inbuf' para 'outbuf' na posição 'position'.
+    Atualiza 'position' para apontar para o próximo slot disponível.
+    Permite empacotar múltiplos tipos diferentes em sequência.
+
+  EXEMPLO (Q11 - empacotar a, b e n para broadcast):
+    char pack_buf[100]; // buffer suficiente para 2 doubles (16 bytes) + 1 int (4 bytes)
+    int position = 0;   // começa no início do buffer
+
+    double a = 0.0, b = 3.0;
+    int n = 1000;
+
+    MPI_Pack(&a, 1, MPI_DOUBLE, pack_buf, 100, &position, MPI_COMM_WORLD);
+    // position agora = 8 (tamanho de um double)
+
+    MPI_Pack(&b, 1, MPI_DOUBLE, pack_buf, 100, &position, MPI_COMM_WORLD);
+    // position agora = 16
+
+    MPI_Pack(&n, 1, MPI_INT, pack_buf, 100, &position, MPI_COMM_WORLD);
+    // position agora = 20
+
+    MPI_Bcast(pack_buf, 100, MPI_PACKED, 0, MPI_COMM_WORLD);
+    // MPI_PACKED é o tipo especial para buffers empacotados
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+21. MPI_Unpack
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  int MPI_Unpack(void *inbuf, int insize, int *position,
+                 void *outbuf, int outcount, MPI_Datatype datatype,
+                 MPI_Comm comm)
+
+  PARÂMETROS:
+    inbuf    → buffer empacotado (recebido via Bcast/Recv)
+    insize   → tamanho total do buffer em bytes
+    position → IN/OUT: posição atual. Começa em 0, incrementado automaticamente.
+    outbuf   → onde colocar os dados desempacotados
+    outcount → quantos elementos extrair
+    datatype → tipo dos dados a extrair
+    comm     → comunicador
+
+  O QUE FAZ:
+    Extrai dados do buffer empacotado na ordem inversa do MPI_Pack.
+    DEVE desempacotar na MESMA ORDEM em que foi empacotado.
+
+  EXEMPLO (Q11 - desempacotar a, b e n):
+    // Após receber pack_buf via MPI_Bcast:
+    double a, b;
+    int n;
+    int position = 0; // reinicia no início do buffer
+
+    MPI_Unpack(pack_buf, 100, &position, &a, 1, MPI_DOUBLE, MPI_COMM_WORLD);
+    // extrai o primeiro double (a) → position = 8
+
+    MPI_Unpack(pack_buf, 100, &position, &b, 1, MPI_DOUBLE, MPI_COMM_WORLD);
+    // extrai o segundo double (b) → position = 16
+
+    MPI_Unpack(pack_buf, 100, &position, &n, 1, MPI_INT, MPI_COMM_WORLD);
+    // extrai o int (n) → position = 20
+
+  ERRO COMUM: desempacotar em ordem diferente da empacotada.
+    // ERRADO: empacotou a, b, n mas desempacota n, a, b
+    // Os bytes de 'a' (double) seriam interpretados como 'n' (int) → valor errado!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+22. MPI_Type_commit e MPI_Type_free
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  int MPI_Type_commit(MPI_Datatype *datatype)
+  int MPI_Type_free(MPI_Datatype *datatype)
+
+  MPI_Type_commit:
+    Registra o tipo derivado no sistema MPI. OBRIGATÓRIO antes de usar qualquer
+    tipo criado com Type_contiguous, Type_indexed, Type_create_struct, etc.
+    Sem commit → erro de runtime.
+
+  MPI_Type_free:
+    Libera os recursos do tipo derivado. Boa prática, evita vazamento de memória MPI.
+    O tipo é invalidado após o free.
+
+  EXEMPLO (Q9 e Q10):
+    MPI_Datatype meu_tipo;
+    MPI_Type_contiguous(local_n, MPI_DOUBLE, &meu_tipo);
+    MPI_Type_commit(&meu_tipo);        // registra
+    // ... usa o tipo em Scatter, Gather, Send, Recv ...
+    MPI_Type_free(&meu_tipo);          // libera
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TABELA RESUMO - QUANDO USAR CADA FUNÇÃO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+OPERAÇÃO DESEJADA                          FUNÇÃO A USAR
+─────────────────────────────────────────  ─────────────────────────────────────
+Enviar 1 mensagem ponto-a-ponto            MPI_Send + MPI_Recv
+Enviar e receber simultaneamente           MPI_Sendrecv_replace (evita deadlock)
+Um processo envia para TODOS               MPI_Bcast
+TODOS enviam, um coleta (mesmos tamanhos)  MPI_Gather
+Um envia para TODOS (fatias iguais)        MPI_Scatter
+TODOS enviam, um coleta (tamanhos dif.)    MPI_Gatherv
+Um envia para TODOS (fatias diferentes)    MPI_Scatterv
+Somar/max/min parciais → resultado no root MPI_Reduce
+Somar/max/min → resultado em TODOS         MPI_Allreduce
+Soma de prefixos para cada processo        MPI_Scan
+Sincronizar todos os processos             MPI_Barrier
+Medir tempo real decorrido                 MPI_Wtime
+Empacotar tipos diferentes em um buffer   MPI_Pack + MPI_Bcast + MPI_Unpack
+Selecionar bloco contíguo como 1 unidade   MPI_Type_contiguous
+Selecionar elementos arbitrários           MPI_Type_indexed
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TIPOS DE DADOS MPI COMUNS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  MPI_INT       → int  (4 bytes)
+  MPI_LONG      → long (8 bytes)
+  MPI_FLOAT     → float (4 bytes)
+  MPI_DOUBLE    → double (8 bytes)
+  MPI_CHAR      → char (1 byte)
+  MPI_BYTE      → byte sem tipo
+  MPI_PACKED    → buffer empacotado com MPI_Pack
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OPERAÇÕES MPI_Op PARA REDUCE / SCAN / ALLREDUCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  MPI_SUM   → soma         ex: 3+7+2+5 = 17
+  MPI_MAX   → máximo       ex: max(3,7,2,5) = 7
+  MPI_MIN   → mínimo       ex: min(3,7,2,5) = 2
+  MPI_PROD  → produto      ex: 3*7*2*5 = 210
+  MPI_LAND  → AND lógico   ex: 1 AND 0 AND 1 = 0  (verifica se TODOS ok)
+  MPI_LOR   → OR lógico    ex: 0 OR 1 OR 0 = 1   (verifica se ALGUM ok)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFERÊNCIA: PACHECO, Peter S. An Introduction to Parallel Programming.
+Morgan Kaufmann, 2011. | Slides: Kathy J. Liszka - Chapter 3 MPI

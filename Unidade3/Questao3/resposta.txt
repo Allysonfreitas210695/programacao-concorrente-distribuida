@@ -1,0 +1,66 @@
+Questão 3 - Distribuição de vetores entre processos
+====================================================
+
+Dados: comm_sz processos (p), vetor x com n componentes, tamanho de bloco b.
+
+(a) Distribuição em BLOCO
+--------------------------
+Cada processo recebe um bloco contíguo de componentes.
+Seja base = n / p  e  rem = n % p
+
+Processo q recebe:
+  - local_n = base + 1, se q < rem
+  - local_n = base,     se q >= rem
+
+Índice inicial do processo q:
+  - first = q * (base + 1),           se q < rem
+  - first = q * base + rem,           se q >= rem
+
+Componentes do processo q: x[first], x[first+1], ..., x[first + local_n - 1]
+
+Exemplo (n=10, p=3): processo 0 → {0,1,2,3}, processo 1 → {4,5,6,7}, processo 2 → {8,9}
+
+
+(b) Distribuição CÍCLICA
+--------------------------
+Os componentes são distribuídos em round-robin: componente i vai para o processo i % p.
+
+Processo q recebe os índices: q, q+p, q+2p, q+3p, ...
+
+local_n do processo q:
+  - local_n = n/p + 1,  se q < n%p
+  - local_n = n/p,      se q >= n%p
+
+Componente k local (0-indexed) do processo q corresponde ao índice global: q + k*p
+
+Exemplo (n=10, p=3): processo 0 → {x[0],x[3],x[6],x[9]}, processo 1 → {x[1],x[4],x[7]}, processo 2 → {x[2],x[5],x[8]}
+
+
+(c) Distribuição BLOCO-CÍCLICA com tamanho de bloco b
+-------------------------------------------------------
+Os componentes são agrupados em blocos de tamanho b e distribuídos ciclicamente.
+
+Bloco j (0-indexed) corresponde a índices globais [j*b, j*b+1, ..., j*b+b-1].
+O bloco j vai para o processo j % p.
+
+Total de blocos completos: num_blocks = n / b
+Blocos sobrando que não completam b: pode haver um bloco parcial de tamanho n % b.
+
+Processo q recebe os blocos: q, q+p, q+2p, ...
+
+Para garantir distribuição justa (diferença máxima de 1 entre processos):
+  total_blocks = ceil(n / b)
+  base_blocks  = total_blocks / p
+  rem_blocks   = total_blocks % p
+
+  Processo q recebe:
+    - base_blocks + 1 blocos, se q < rem_blocks
+    - base_blocks blocos,     se q >= rem_blocks
+
+  O último bloco pode ser parcial (tamanho n % b, se != 0).
+
+Exemplo (n=16, p=3, b=2):
+  Blocos: [0,1],[2,3],[4,5],[6,7],[8,9],[10,11],[12,13],[14,15] → 8 blocos
+  Processo 0 → blocos 0,3,6    → {0,1,6,7,12,13}
+  Processo 1 → blocos 1,4,7    → {2,3,8,9,14,15}
+  Processo 2 → blocos 2,5      → {4,5,10,11}

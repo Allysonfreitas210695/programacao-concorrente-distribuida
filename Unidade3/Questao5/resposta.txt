@@ -1,0 +1,37 @@
+Questão 5 - Somas de Prefixos
+==============================
+
+(a) Algoritmo SERIAL
+---------------------
+prefix[0] = x[0]
+for i = 1 to n-1:
+    prefix[i] = prefix[i-1] + x[i]
+
+Complexidade: O(n)
+
+(b) Algoritmo PARALELO sem MPI_Scan (n = 2^k processos, cada um com 1 elemento)
+----------------------------------------------------------------------------------
+O algoritmo executa k = log2(n) fases de comunicação.
+
+Fase 1 (half=1): processo q envia seu valor para q+1 e recebe de q-1. q >= 1 soma.
+Fase 2 (half=2): processo q envia para q+2 e recebe de q-2. q >= 2 soma.
+...
+Fase k (half=2^(k-1)): processo q envia para q+2^(k-1). q >= 2^(k-1) soma.
+
+Após k fases, o processo q contém a soma x[0]+x[1]+...+x[q].
+
+Pseudocódigo:
+    cur = my_val
+    for half = 1, 2, 4, ..., n/2:
+        if my_rank + half < p: send(cur, to=my_rank+half)
+        if my_rank - half >= 0: recv(received, from=my_rank-half); cur += received
+        barrier()
+
+Total de fases de comunicação: log2(n) ✓
+
+(c) Com MPI_Scan
+-----------------
+MPI_Scan(&my_val, &scan_result, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+O processo q recebe em scan_result a soma x[0]+x[1]+...+x[q].
+Internamente o MPI pode usar a mesma estrutura de árvore do item (b).

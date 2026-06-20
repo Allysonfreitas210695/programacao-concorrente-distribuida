@@ -1,0 +1,90 @@
+/* Questão 7 - Lista MPI
+ * Modificação da Questão 4 usando MPI_Scatterv e MPI_Gatherv
+ * para suportar n não divisível por comm_sz.
+ *
+ * Compile: mpicc -g -Wall -o mpi_vec_q7 mpi_vec_q7.c -lm
+ * Run:     mpiexec -n <p> ./mpi_vec_q7
+ */
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <mpi.h>
+
+int main(void) {
+    int my_rank, comm_sz, n;
+    double scalar;
+    double *x = NULL, *y = NULL;
+    double *local_x, *local_y, *result_x = NULL;
+    double local_norm_sq, global_norm_sq;
+
+    /* Vetores para MPI_Scatterv / MPI_Gatherv */
+    int *sendcounts = NULL, *displs = NULL;
+    int local_n;
+
+    MPI_Init(NULL, NULL);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &comm_sz);
+
+    if (my_rank == 0) {
+        printf("Digite n (qualquer valor): ");
+        scanf("%d", &n);
+        printf("Digite o escalar: ");
+        scanf("%lf", &scalar);
+
+        x = malloc(n * sizeof(double));
+        y = malloc(n * sizeof(double));
+        printf("Digite os %d elementos do vetor x:\n", n);
+        for (int i = 0; i < n; i++) scanf("%lf", &x[i]);
+        printf("Digite os %d elementos do vetor y:\n", n);
+        for (int i = 0; i < n; i++) scanf("%lf", &y[i]);
+    }
+
+    MPI_Bcast(&n,      1, MPI_INT,    0, MPI_COMM_WORLD);
+    MPI_Bcast(&scalar, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    /* MODIFICAÇÃO PRINCIPAL: calcular sendcounts e displs */
+    sendcounts = malloc(comm_sz * sizeof(int));
+    displs     = malloc(comm_sz * sizeof(int));
+    int base = n / comm_sz, rem = n % comm_sz;
+    int offset = 0;
+    for (int q = 0; q < comm_sz; q++) {
+        sendcounts[q] = (q < rem) ? base + 1 : base;
+        displs[q]     = offset;
+        offset       += sendcounts[q];
+    }
+    local_n = sendcounts[my_rank];
+
+    local_x = malloc(local_n * sizeof(double));
+    local_y = malloc(local_n * sizeof(double));
+
+    /* Scatter com tamanhos diferentes por processo */
+    MPI_Scatterv(x, sendcounts, displs, MPI_DOUBLE,
+                 local_x, local_n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Scatterv(y, sendcounts, displs, MPI_DOUBLE,
+                 local_y, local_n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    /* Operações locais */
+    for (int i = 0; i < local_n; i++) local_x[i] *= scalar;
+
+    local_norm_sq = 0.0;
+    for (int i = 0; i < local_n; i++) local_norm_sq += local_y[i] * local_y[i];
+
+    /* Gather com tamanhos diferentes */
+    if (my_rank == 0) result_x = malloc(n * sizeof(double));
+    MPI_Gatherv(local_x, local_n, MPI_DOUBLE,
+                result_x, sendcounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    MPI_Reduce(&local_norm_sq, &global_norm_sq, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
+    if (my_rank == 0) {
+        printf("\nResultado de x * %.2f:\n", scalar);
+        for (int i = 0; i < n; i++) printf("%.4f ", result_x[i]);
+        printf("\nNorma de y: %.6f\n", sqrt(global_norm_sq));
+        free(x); free(y); free(result_x);
+    }
+
+    free(local_x); free(local_y);
+    free(sendcounts); free(displs);
+    MPI_Finalize();
+    return 0;
+}

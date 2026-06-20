@@ -1,0 +1,36 @@
+Questão 6 - Allreduce e Prefix Sum em Anel
+==========================================
+
+(a) Allreduce via anel
+-----------------------
+O anel passa um token em volta: cada processo envia para q+1 e recebe de q-1.
+Após p-1 rodadas, cada processo já recebeu os valores de todos os outros e somou tudo.
+
+O código fornecido na questão:
+    sum = temp_val = my_val;
+    for (i = 1; i < p; i++) {
+        MPI_Sendrecv_replace(&temp_val, 1, MPI_INT, dest, sendtag,
+                              source, recvtag, comm, &status);
+        sum += temp_val;
+    }
+
+Complexidade: O(p) mensagens ponto-a-ponto de tamanho fixo.
+Comparado ao borboleta (butterfly): O(log p) fases, porém com mensagens maiores.
+Para p grande: anel é mais lento em latência, mas simples de implementar.
+
+(b) Prefix Sum via anel
+------------------------
+Adapta o anel para acumular apenas os valores de processos com rank < meu_rank.
+
+Trecho mais importante:
+    temp_val = my_val;
+    prefix = my_val;
+    for (i = 1; i < p; i++) {
+        MPI_Sendrecv_replace(&temp_val, 1, MPI_INT, dest, sendtag,
+                              source, recvtag, comm, &status);
+        int sender_rank = (my_rank - i + p) % p;
+        if (sender_rank < my_rank)
+            prefix += temp_val;
+    }
+
+Após p-1 rodadas, prefix contém x[0]+x[1]+...+x[my_rank].
