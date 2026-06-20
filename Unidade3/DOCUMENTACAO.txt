@@ -1,0 +1,579 @@
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║      DOCUMENTAÇÃO COMPLETA — LISTA MPI (UNIDADE 3)                             ║
+║      PEX1272 - Programação Concorrente e Distribuída - UFERSA                  ║
+║                                                                                  ║
+║  Este arquivo explica o PORQUÊ de cada resposta e de cada decisão de código.   ║
+║  Para cada questão: origem do código, o que foi modificado e o raciocínio.     ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUESTÃO 1 — Regra Trapezoidal com Divisão Não-Uniforme
+Arquivo: Questao1/mpi_trap_q1.c
+Origem: MODIFICAÇÃO de mpi_trap1.c (livro IPP, Seção 3.2.2)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROBLEMA NO ORIGINAL (mpi_trap1.c):
+    local_n = n / comm_sz;   /* divisão inteira — perde o resto */
+
+  Se n=10 e comm_sz=3: local_n=3 para todos → só 9 trapézios são calculados,
+  o 10º é ignorado silenciosamente. O resultado da integral fica errado.
+  O livro original também tinha a,b,n hardwired (sem entrada do usuário).
+
+O QUE MUDAMOS:
+  1. Adicionamos Get_input() com MPI_Bcast para ler a, b, n do processo 0
+     e distribuir para todos (substituindo os valores fixos do original).
+  2. Substituímos o bloco de comunicação Send/Recv por MPI_Reduce (mais eficiente).
+  3. Adicionamos o tratamento do resto da divisão.
+
+POR QUE O TRATAMENTO DO RESTO FUNCIONA:
+    int base_n    = n / comm_sz;   /* trapézios garantidos para todos */
+    int remainder = n % comm_sz;   /* trapézios "sobrando" */
+
+    if (my_rank < remainder) {
+        local_n = base_n + 1;
+        local_a = a + my_rank * local_n * h;
+    } else {
+        local_n = base_n;
+        local_a = a + (my_rank * base_n + remainder) * h;
+    }
+
+  - Os 'remainder' primeiros processos recebem um trapézio a mais.
+  - Isso garante diferença máxima de 1 trapézio entre qualquer par de processos
+    (distribuição "justa" conforme exige o enunciado).
+  - O cálculo de local_a garante que os intervalos são contíguos e cobrem [a,b]
+    completamente sem sobreposição.
+
+  PROVA DE COBERTURA (exemplo n=10, p=3, remainder=1):
+    Proc 0: local_n=4, local_a=a+0*4h = a,      local_b=a+4h
+    Proc 1: local_n=3, local_a=a+1*3h+1h = a+4h, local_b=a+7h
+    Proc 2: local_n=3, local_a=a+2*3h+1h = a+7h, local_b=a+10h = b ✓
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUESTÃO 2 — Saída Ordenada por Rank
+Arquivo: Questao2/mpi_output_q2.c
+Origem: MODIFICAÇÃO de mpi_output.c (livro IPP, Seção 3.3.1)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROBLEMA NO ORIGINAL (mpi_output.c):
+    printf("Proc %d of %d > Does anyone have a toothpick?\n", my_rank, comm_sz);
+
+  Todos os processos imprimem sem coordenação. O sistema operacional entrega
+  as saídas ao terminal em ordem arbitrária (depende do escalonador).
+  Resultado típico: "Proc 2 > ... Proc 0 > ... Proc 3 > ... Proc 1 > ..."
+
+O QUE MUDAMOS:
+  Implementamos o padrão "Token Ring" (passagem de bastão):
+    - Processo 0 imprime e passa um token (qualquer valor, ex: 1) para o processo 1.
+    - Processo q espera receber o token do processo q-1 ANTES de imprimir.
+    - Após imprimir, passa o token para o processo q+1 (se existir).
+
+POR QUE FUNCIONA — O RACIOCÍNIO:
+  MPI_Recv é BLOQUEANTE: o processo q fica suspenso até receber o token.
+  Como o token só existe após o processo q-1 imprimir, a impressão de q
+  necessariamente vem DEPOIS da impressão de q-1.
+  Isso cria uma cadeia de dependências: 0 → 1 → 2 → ... → p-1.
+
+  O fflush(stdout) é essencial: sem ele, a impressão pode ficar no buffer
+  interno do processo e não aparecer no terminal antes de o token ser enviado.
+
+POR QUE NÃO USAR MPI_Barrier:
+  MPI_Barrier sincroniza todos os processos num ponto, mas NÃO garante ORDEM
+  de execução após a barreira. Todos liberados ao mesmo tempo → mesma corrida.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUESTÃO 3 — Distribuições de Vetores
+Arquivo: Questao3/resposta.txt
+Origem: RESPOSTA TEÓRICA (sem código)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(a) DISTRIBUIÇÃO EM BLOCO — POR QUÊ:
+  Cada processo recebe um bloco CONTÍGUO de elementos.
+  Vantagem: os elementos locais estão adjacentes em memória → melhor uso de cache.
+  Uso típico: quando a computação de cada elemento depende dos elementos vizinhos
+  (ex: stencils, regra trapezoidal — o intervalo de integração é contíguo).
+
+  Fórmula justa (mesma lógica da Q1):
+    local_n[q] = base + 1  se q < remainder
+    local_n[q] = base      se q >= remainder
+    onde base = n/p, remainder = n%p
+
+(b) DISTRIBUIÇÃO CÍCLICA — POR QUÊ:
+  Elemento i vai para o processo i % p (round-robin).
+  Vantagem: balanceia carga automaticamente quando os elementos têm custos
+  computacionais IRREGULARES (ex: integração de funções complexas, onde alguns
+  subintervalos convergem mais lento). Se um processo termina os seus elementos
+  rapidamente, foi porque seus elementos eram "fáceis", e outro processo com
+  elementos "difíceis" não sobrecarrega um bloco inteiro.
+
+  Desvantagem: elementos não são contíguos → pior localidade de cache.
+
+(c) DISTRIBUIÇÃO BLOCO-CÍCLICA — POR QUÊ:
+  Compromisso entre bloco (localidade) e cíclica (balanceamento).
+  Os elementos são agrupados em blocos de tamanho b e distribuídos ciclicamente.
+  Bloco b=1 → cíclica pura. Bloco b=n/p → bloco puro.
+  Permite ajustar o tradeoff conforme o problema.
+  Amplamente usada em álgebra linear paralela (ex: biblioteca ScaLAPACK).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUESTÃO 4 — Dois Vetores e Escalar
+Arquivo: Questao4/mpi_vec_q4.c
+Origem: NOVO CÓDIGO (inspirado em mpi_vector_add.c do IPP, Seção 3.4.6)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+POR QUE MPI_Scatter PARA DISTRIBUIR OS VETORES:
+  O processo 0 leu o vetor completo. MPI_Scatter divide automaticamente
+  o array em fatias iguais e entrega uma fatia para cada processo.
+  Alternativa seria p-1 chamadas de MPI_Send no processo 0 — mais verboso
+  e sem benefício de desempenho para distribuição uniforme.
+
+POR QUE MPI_Reduce PARA A NORMA (em vez de MPI_Gather):
+  A norma é um ESCALAR: ||y|| = sqrt(sum(y[i]^2)).
+  Cada processo calcula a soma parcial dos quadrados (local_norm_sq).
+  MPI_Reduce com MPI_SUM combina todas as somas parciais num único double
+  no processo 0 → resultado correto sem transferir o vetor inteiro.
+  MPI_Gather traria todos os elementos para o processo 0 calcular tudo
+  sozinho — desperdício de comunicação e memória.
+
+POR QUE MPI_Gather PARA O RESULTADO DE x*scalar:
+  x*scalar é um VETOR: precisamos de todos os elementos no processo 0
+  para imprimir. MPI_Gather coleta as fatias na ordem dos ranks,
+  reconstituindo o vetor original na memória do processo 0.
+
+RESTRIÇÃO: n divisível por comm_sz.
+  MPI_Scatter/Gather exigem fatias iguais. A Q7 resolve o caso geral
+  com MPI_Scatterv/Gatherv.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUESTÃO 5 — Somas de Prefixos
+Arquivo: Questao5/mpi_prefix_q5.c
+Origem: NOVO CÓDIGO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(a) SERIAL — POR QUÊ É O(n):
+  prefix[i] = prefix[i-1] + x[i] — cada elemento depende apenas do anterior.
+  Não há como paralelizar com dependências de dados diretas assim (sem técnica).
+  Uma única varredura linear é ótima para o caso serial.
+
+(b) PARALELO SEM MPI_Scan — POR QUÊ log2(p) FASES:
+
+  O algoritmo usa o conceito de "varredura de prefixo em árvore":
+
+  FASE half=1: processo q envia cur[q] para q+1 e recebe de q-1.
+    Após a fase: cur[q] = x[q-1] + x[q]  (soma dos 2 vizinhos)
+
+  FASE half=2: processo q envia cur[q] para q+2 e recebe de q-2.
+    Após a fase: cur[q] = x[q-3] + ... + x[q]  (soma dos 4 anteriores)
+
+  FASE half=2^k: processo q envia cur[q] para q+2^k e recebe de q-2^k.
+    Cada fase DOBRA o alcance da soma acumulada.
+
+  Após log2(p) fases: cur[q] = x[0] + x[1] + ... + x[q] ✓
+
+  EXEMPLO com p=4 e valores [a, b, c, d]:
+    Início: [a, b, c, d]
+    Fase 1: [a, a+b, b+c, c+d]
+    Fase 2: [a, a+b, a+b+c, a+b+c+d] ✓
+
+  POR QUE MPI_Barrier ENTRE FASES:
+    Sem a barreira, um processo rápido poderia entrar na fase 2 e enviar
+    um valor da fase 2 para um processo que ainda está na fase 1.
+    Esse processo receberia o valor errado (da fase errada).
+    A barreira garante que todos terminam a fase k antes de começar a k+1.
+
+  POR QUE Send PARA CIMA (q+half) E Recv DE BAIXO (q-half):
+    O prefixo de q depende dos elementos ANTERIORES (menores ranks).
+    Então q envia seu acumulador para q+half (que precisa dele)
+    e recebe de q-half (que tem o acumulado dos elementos antes de q).
+
+(c) COM MPI_Scan:
+  MPI_Scan é uma operação coletiva nativa do MPI que faz exatamente
+  o item (b) internamente. Internamente muitas implementações usam
+  algoritmos similares ao nosso (árvore ou pipeline).
+  Vantagem: código simples, implementação otimizada pelo MPI.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUESTÃO 6 — Allreduce e Prefix Sum em Anel
+Arquivo: Questao6/mpi_ring_q6.c
+Origem: NOVO CÓDIGO (baseado no pseudocódigo do enunciado)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(a) ALLREDUCE VIA ANEL — POR QUE FUNCIONA:
+
+  Cada processo q envia para q+1 (módulo p) e recebe de q-1 (módulo p).
+  MPI_Sendrecv_replace substitui o valor local pelo recebido (in-place).
+
+  RACIOCÍNIO: após p-1 rodadas, cada valor inicial percorreu todo o anel
+  e passou por todos os processos. Como cada processo soma temp_val a cada
+  recepção, ao final cada processo somou TODOS os valores originais.
+
+  EXEMPLO com p=3, valores [2, 5, 7]:
+    Início: temp_val[0]=2,  temp_val[1]=5,  temp_val[2]=7
+    Round 1 (cada q recebe de q-1):
+      q=0 recebe 7, q=1 recebe 2, q=2 recebe 5
+      sum[0]=2+7=9, sum[1]=5+2=7, sum[2]=7+5=12
+    Round 2:
+      q=0 recebe 5, q=1 recebe 7, q=2 recebe 2
+      sum[0]=9+5=14, sum[1]=7+7=14, sum[2]=12+2=14 ✓ (2+5+7=14)
+
+  COMPARAÇÃO COM BUTTERFLY (allreduce estruturado):
+    Anel: O(p) fases de comunicação — mais fases.
+    Butterfly: O(log p) fases, mas cada fase envia MAIS dados.
+    Para dados pequenos (1 int), anel e butterfly têm desempenho similar.
+    Para dados grandes (vetores), butterfly é melhor (menos rodadas).
+
+(b) PREFIX SUM VIA ANEL — POR QUE A CONDIÇÃO sender_rank < my_rank:
+
+  A diferença para o allreduce é que o processo q só quer somar valores
+  dos processos com rank MENOR que q (prefixo).
+
+  A chave: rastrear de onde o valor veio.
+  Na iteração i, temp_val contém o valor original do processo (q-i) mod p.
+  Se (q-i) mod p < q, esse processo tem rank menor → somamos.
+  Se (q-i) mod p > q (deu a volta no anel), não somamos.
+
+  EXEMPLO com p=4, processo q=2:
+    i=1: recebeu de (2-1)%4 = 1 → sender_rank=1 < 2 → soma ✓
+    i=2: recebeu de (2-2)%4 = 0 → sender_rank=0 < 2 → soma ✓
+    i=3: recebeu de (2-3+4)%4 = 3 → sender_rank=3 > 2 → NÃO soma ✓
+  Resultado: prefix[2] = x[0] + x[1] + x[2] ✓
+
+  POR QUE MPI_Sendrecv_replace (e não Send + Recv separados):
+    Se TODOS os processos chamam Send antes do Recv:
+      Send é bloqueante → todos ficam presos esperando o buffer ser consumido.
+      Ninguém chama Recv → deadlock.
+    Sendrecv_replace resolve isso internamente (usa buffers intermediários
+    ou implementação não-bloqueante).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUESTÃO 7 — MPI_Scatterv e MPI_Gatherv (Q4 generalizada)
+Arquivo: Questao7/mpi_vec_q7.c
+Origem: MODIFICAÇÃO da Q4
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+POR QUE MPI_Scatter/Gather NÃO FUNCIONAM QUANDO n % comm_sz != 0:
+  MPI_Scatter divide o buffer de envio em fatias IGUAIS de sendcount elementos.
+  Se n=10, p=3: fatias de 3 (proc 0), 3 (proc 1), 3 (proc 2) → 1 elemento perdido.
+  Não há como passar fatias diferentes para cada processo.
+
+POR QUE MPI_Scatterv/Gatherv RESOLVEM:
+  Aceitam dois arrays adicionais:
+  - sendcounts[q]: quantos elementos enviar para o processo q
+  - displs[q]: onde no buffer global começa a fatia de q
+
+  A distribuição justa (mesma da Q1 e Q3a) garante que a diferença entre
+  qualquer par de processos é no máximo 1 elemento:
+    sendcounts[q] = base + 1  se q < remainder
+    sendcounts[q] = base      se q >= remainder
+
+  O array displs é a soma cumulativa de sendcounts:
+    displs[0]=0, displs[1]=sendcounts[0], displs[2]=sendcounts[0]+sendcounts[1], ...
+
+  EXEMPLO n=10, p=3:
+    sendcounts = [4, 3, 3]
+    displs     = [0, 4, 7]
+    Proc 0: recebe x[0..3]  (4 elementos)
+    Proc 1: recebe x[4..6]  (3 elementos)
+    Proc 2: recebe x[7..9]  (3 elementos) ✓ cobriu os 10 elementos
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUESTÃO 8 — Diagrama Butterfly Allgather
+Arquivo: Questao8/resposta.txt
+Origem: RESPOSTA TEÓRICA (sem código)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+POR QUE A ESTRUTURA BUTTERFLY PARA ALLGATHER:
+
+  Allgather = cada processo precisa receber os dados de TODOS os outros.
+  A abordagem ingênua: p-1 rounds onde cada processo envia para todos → O(p) fases.
+  Butterfly: log2(p) fases, cada uma DOBRA a quantidade de dados por processo.
+
+  INVARIANTE: ao final da fase k (stride=2^k), cada processo tem os dados
+  dos 2^k processos em seu "bairro" (bloco de 2^k processos ao redor).
+  Após log2(p) fases, o "bairro" cobre todos os p processos → allgather completo.
+
+  POR QUE stride DOBRA:
+    Fase 1 (stride=1): troca com vizinho imediato → 2 processos se conhecem.
+    Fase 2 (stride=2): troca com vizinho distante 2 → 4 processos se conhecem.
+    A cada fase, os pares já têm informação de 2x mais processos,
+    então ao trocar, cada um recebe 2x mais dados que na fase anterior.
+
+  COMPLEXIDADE: log2(8) = 3 fases para p=8 (vs 7 fases no anel).
+  Cada fase troca 2^k elementos → total de dados trocados é O(n) por fase.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUESTÃO 9 — MPI_Type_contiguous
+Arquivo: Questao9/mpi_vec_q9.c
+Origem: MODIFICAÇÃO de mpi_vector_add.c (livro IPP, Seção 3.4.6)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+O QUE MUDAMOS NO ORIGINAL (mpi_vector_add.c):
+  Original: MPI_Scatter(a, local_n, MPI_DOUBLE, local_a, local_n, MPI_DOUBLE, ...)
+  Modificado: criamos um tipo derivado "bloco de local_n doubles" e usamos count=1.
+
+POR QUE MPI_Type_contiguous EXISTE:
+  Tipos derivados permitem descrever ESTRUTURAS DE DADOS COMPLEXAS para o MPI,
+  tratando um bloco de elementos como uma única "unidade" de comunicação.
+  Isso é útil quando:
+  - O bloco é a unidade lógica (ex: uma linha de matriz).
+  - Se combina com outros tipos (ex: struct com campos de tipos diferentes).
+  - Facilita a composição de tipos mais complexos (tipo de tipo).
+
+POR QUE count=1 COM O TIPO DERIVADO É EQUIVALENTE A count=local_n COM MPI_DOUBLE:
+  MPI_Type_contiguous(local_n, MPI_DOUBLE, &contig_type) cria um tipo que
+  representa exatamente local_n doubles contíguos.
+  Quando usamos count=1 desse tipo em MPI_Scatter:
+    MPI com tipo: envia 1 × (local_n doubles) = local_n doubles por processo.
+    MPI original: envia local_n × (1 double) = local_n doubles por processo.
+  São semanticamente idênticos — a diferença é apenas CONCEITUAL.
+
+POR QUE MPI_Type_commit É OBRIGATÓRIO:
+  Commit "registra" o tipo no sistema MPI interno.
+  Sem commit, o MPI não sabe que o tipo está pronto para uso → erro de runtime.
+  MPI_Type_free libera os recursos quando o tipo não é mais necessário.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUESTÃO 10 — MPI_Type_indexed (Triangular Superior)
+Arquivo: Questao10/mpi_upper_q10.c
+Origem: NOVO CÓDIGO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+POR QUE MPI_Type_indexed E NÃO MPI_Type_contiguous:
+  A triangular superior tem um padrão IRREGULAR:
+  - Número de elementos por linha varia: n, n-1, n-2, ..., 1.
+  - As linhas não são contíguas em memória (há elementos da parte inferior
+    entre elas no armazenamento row-major).
+  MPI_Type_contiguous só funciona para blocos UNIFORMES e CONTÍGUOS.
+  MPI_Type_indexed permite especificar, para cada bloco:
+    - blocklengths[i]:  quantos elementos tem este bloco
+    - displacements[i]: onde começa este bloco (em unidades do tipo base)
+
+POR QUE OS DESLOCAMENTOS SÃO EM UNIDADES DO TIPO BASE (não bytes):
+  MPI_Type_indexed usa deslocamentos em "número de elementos do tipo base".
+  Diferente de MPI_Type_create_struct que usa bytes.
+  Para MPI_INT (4 bytes): displacement=5 significa pular 5 inteiros (20 bytes).
+  Isso simplifica o código pois não precisamos calcular sizeof(tipo).
+
+COMO CAPTURA A TRIANGULAR SUPERIOR DE MATRIZ 4x4:
+  Linha 0: começa em col 0, tem 4 elementos → blocklength=4, displacement=0
+  Linha 1: começa em col 1, tem 3 elementos → blocklength=3, displacement=5 (=1*4+1)
+  Linha 2: começa em col 2, tem 2 elementos → blocklength=2, displacement=10 (=2*4+2)
+  Linha 3: começa em col 3, tem 1 elemento  → blocklength=1, displacement=15 (=3*4+3)
+
+  Fórmula geral: blocklengths[i] = n-i,  displacements[i] = i*n+i
+
+POR QUE O RECEPTOR USA MPI_Recv COM MPI_INT PLANO (sem o tipo derivado):
+  O tipo derivado descreve COMO os dados estão dispostos NO REMETENTE
+  (espalhados na matriz com gaps entre linhas).
+  O receptor recebe os dados JÁ EXTRAÍDOS pelo MPI — chegam contíguos.
+  Por isso o receptor pode usar um buffer plano (upper_count inteiros) e
+  receber com MPI_Recv(buf, upper_count, MPI_INT, ...).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUESTÃO 11 — MPI_Pack e MPI_Unpack
+Arquivo: Questao11/mpi_trap_q11.c
+Origem: MODIFICAÇÃO de mpi_trap3.c (livro IPP — versão com Get_input via Bcast)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+O QUE MUDAMOS:
+  Original (mpi_trap3.c): Get_input usa 3 MPI_Bcast separados (um para a,
+  um para b, um para n).
+  Modificado: empacotamos a, b e n num único buffer com MPI_Pack,
+  transmitimos com 1 MPI_Bcast e desempacotamos com MPI_Unpack.
+
+POR QUE MPI_Pack REDUZ DE 3 Bcasts PARA 1:
+  Cada MPI_Bcast tem overhead fixo de latência de rede (independente do
+  tamanho da mensagem). Para mensagens pequenas, a latência domina.
+  Empacotar: 3 latências → 1 latência. Para n processos e latência L:
+    3 Bcasts:  3 × L × log2(p)
+    1 Bcast:   1 × L × log2(p)
+
+POR QUE O ARGUMENTO position É IN/OUT:
+  position aponta para o próximo slot disponível no buffer.
+  Cada chamada de MPI_Pack avança position pelo tamanho dos dados empacotados.
+  Assim o próximo Pack começa EXATAMENTE após o anterior (sem sobreposição).
+  MPI_Unpack funciona da mesma forma: avança position a cada extração.
+  Isso é o que permite empacotar tipos diferentes (double, double, int) em sequência.
+
+POR QUE MPI_PACKED COMO TIPO NO MPI_Bcast:
+  MPI_Bcast precisa saber o tipo para calcular o tamanho da mensagem.
+  MPI_PACKED sinaliza ao MPI que o buffer contém dados já serializados
+  pelo MPI_Pack — o MPI trata como bytes opacos de tamanho fixo (100 bytes).
+
+ORDEM DE UNPACK DEVE SER IDÊNTICA À DE PACK:
+  Se empacotamos (a=double, b=double, n=int) e desempacotamos como
+  (n=int, ...) → os bytes de 'a' (8 bytes de double) são lidos como int
+  (4 bytes) → valor completamente errado. A ordem é obrigatória.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUESTÃO 12 — Cronometragem da Regra Trapezoidal
+Arquivo: Questao12/mpi_trap_q12.c  |  Questao12/slurm_q12.sh
+Origem: NOVO CÓDIGO com timing (baseado em mpi_trap4.c do IPP)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(a) CRITÉRIO PARA ESCOLHA DE n:
+  n deve ser grande o suficiente para que o TRABALHO COMPUTACIONAL domine
+  o overhead de comunicação (MPI_Reduce = O(log p), muito pequeno).
+  Se n for pequeno, o tempo de comunicação representa uma fração grande
+  do tempo total → eficiência artificialmente baixa.
+  Regra prática: n >= 1000 × p. Usamos n=10^9 para tempos na escala de segundos.
+
+POR QUE MPI_Barrier ANTES DE MPI_Wtime:
+  Sem a barreira, processos mais rápidos (que foram inicializados antes)
+  começam a medir antes dos outros → o tempo medido inclui o desequilíbrio
+  de inicialização, não apenas a computação paralela. A barreira garante
+  que todos os relógios começam a correr no mesmo instante lógico.
+
+POR QUE MPI_MAX PARA O TEMPO ELAPSED:
+  O tempo real da execução paralela é ditado pelo processo MAIS LENTO
+  (todos os outros ficam esperando no MPI_Reduce final).
+  MPI_MAX captura esse "gargalo". Usar MPI_MIN seria otimista demais
+  (mediria o processo mais rápido, não o tempo real de parede do programa).
+
+(b) MÍNIMO < MEDIANO < MÉDIO — POR QUÊ:
+  Variações de sistema (escalonador do OS, jitter de rede, paginação de memória)
+  só AUMENTAM o tempo — nunca reduzem abaixo do tempo "limpo" do algoritmo.
+  O mínimo de várias execuções elimina outliers altos → melhor estimativa do
+  desempenho real. O médio é inflado por picos. O mediano é intermediário.
+
+(c) SPEEDUP S(p) = T(1) / T(p):
+  Mede quantas vezes mais rápido o programa paralelo com p processos é
+  comparado à versão com 1 processo.
+
+(d) EFICIÊNCIA E(p) = S(p) / p:
+  Mede qual fração do speedup máximo teórico (p) foi efetivamente aproveitada.
+  E=1 (100%) significa speedup linear perfeito — ideal mas impossível na prática.
+
+(e) ESCALABILIDADE:
+  A regra trapezoidal é FORTEMENTE ESCALÁVEL quando n é grande:
+  - Tempo de computação: O(n/p) — cai linearmente com p.
+  - Overhead de comunicação: O(log p) do MPI_Reduce — cresce muito devagar.
+  Para n >> p, o overhead é desprezível → eficiência próxima de 100%.
+  Para n pequeno, comunicação domina → eficiência cai → NÃO escalável.
+
+SOBRE O SCRIPT SLURM (slurm_q12.sh):
+  Os #SBATCH de recursos DEVEM estar no TOPO do arquivo — o SLURM só lê
+  diretivas #SBATCH antes do primeiro comando executável.
+  #SBATCH dentro de loops são tratados como comentários comuns (ignorados).
+  Por isso alocamos o máximo (4 nós, 96 tarefas) no cabeçalho e usamos
+  srun com --nodes e --ntasks para controlar cada execução individualmente.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUESTÃO 13 — Speedup e Eficiência da Ordenação Ímpar-Par
+Arquivo: Questao13/slurm_q13.sh
+Código: usa mpi_odd_even.c do livro IPP (ch3/) sem modificação
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+POR QUE A ORDENAÇÃO ÍMPAR-PAR FUNCIONA EM PARALELO:
+  O algoritmo ímpar-par (odd-even transposition sort) é um bubble sort paralelo.
+  Em cada fase, apenas PROCESSOS VIZINHOS trocam dados — comunicação local.
+  Após p fases, o array global está ordenado (prova por invariante de ordenação).
+  É naturalmente adequado para memória distribuída porque cada processo só
+  precisa se comunicar com seu vizinho esquerdo ou direito.
+
+(a) NÃO OBTÉM SPEEDUP LINEAR — POR QUÊ:
+  Complexidade serial (bubble sort): O(n²)
+  Complexidade paralela: O(n²/p) computação + O(n) comunicação por fase × p fases
+                       = O(n²/p) + O(n×p)
+  O termo O(n×p) de comunicação cresce com p → speedup sublinear.
+
+(b,c) NÃO É FORTEMENTE ESCALÁVEL — POR QUÊ:
+  Escalabilidade forte: eficiência se mantém com n FIXO e p crescendo.
+  O overhead O(n×p) cresce com p enquanto o trabalho O(n²/p) diminui.
+  Em algum ponto o overhead domina → eficiência cai abruptamente.
+
+(d) ESCALABILIDADE FRACA — CONDICIONAL:
+  Escalabilidade fraca: eficiência se mantém quando n/p = constante (n cresce com p).
+  Para odd-even com n = c×p:
+    Computação: O((c×p)²/p) = O(c²×p) — cresce com p.
+    Comunicação: O(c×p × p) = O(c×p²) — cresce com p².
+  O termo quadrático em p faz a eficiência cair → NÃO é fracamente escalável
+  para p grande. Seria necessário n crescer mais rápido que p para compensar.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUESTÃO 14 — Ordenação Ímpar-Par com Troca de Ponteiros
+Arquivo: Questao14/mpi_odd_even_q14.c
+Origem: MODIFICAÇÃO de mpi_odd_even.c (livro IPP, ch3/)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+O QUE MUDAMOS:
+  Original: Merge_low e Merge_high copiam os resultados de volta para local_A
+            com um loop (memcpy implícito): O(local_n) por fase.
+  Modificado: Merge_low e Merge_high escrevem em um buffer auxiliar (free_buf)
+              e TROCAM PONTEIROS com local_A — operação O(1).
+
+POR QUE A TROCA DE PONTEIROS É CORRETA:
+  Após o merge, o resultado está em free_buf. Em vez de copiar de volta
+  para local_A (O(local_n) operações), apenas redirecionamos local_A para
+  apontar para onde está o resultado (troca de ponteiros = 3 atribuições).
+  O "antigo" local_A passa a ser free_buf (buffer disponível para próxima fase).
+
+  INVARIANTE MANTIDO: após cada chamada de Merge_low ou Merge_high:
+    - *local_A_pp aponta para o resultado correto da ordenação parcial.
+    - *free_buf_pp aponta para o buffer disponível para escrita na próxima fase.
+  Os dois ponteiros NUNCA apontam para o mesmo buffer (sem aliasing).
+
+POR QUE O BUG DA VERSÃO ANTERIOR CAUSAVA CORRUPÇÃO:
+  Versão com bug: temp_C era um ponteiro FIXO. Após a 1ª troca:
+    *local_A_pp = temp_C  (local_A e temp_C apontam para o mesmo buffer!)
+  Na 2ª chamada de Merge, a função lia de *local_A_pp E escrevia em temp_C
+  SIMULTANEAMENTE no mesmo buffer → ler de buffer que está sendo sobrescrito
+  → resultado incorreto da ordenação.
+
+POR QUE DOIS BUFFERS SÃO SUFICIENTES:
+  Em cada fase, o merge lê de local_A e escreve em free_buf.
+  Após o swap, o papel dos buffers é invertido.
+  Com p fases alternando, dois buffers são suficientes — como duplo buffering.
+
+EFEITO NO TEMPO DE EXECUÇÃO:
+  Original: p fases × O(n/p) cópia = O(n) operações de memória totais eliminadas.
+  Para n grande, essa economia é significativa pois cópias de arrays grandes
+  saturar a largura de banda da memória RAM (mais caro que o merge em si).
+  Para n pequeno, a diferença é negligenciável (tudo cabe em cache L1/L2).
+
+GERENCIAMENTO DE MEMÓRIA (por que free(free_buf) em Sort e não free(local_A)):
+  Após Sort retornar, *local_A_pp pode apontar para o buffer ORIGINAL de local_A
+  (se houve número par de swaps) ou para free_buf (se ímpar).
+  free_buf em Sort é SEMPRE o buffer que NÃO contém o resultado final.
+  O main() faz free(local_A) que libera o que *local_A_pp aponta (o resultado).
+  Sort libera free_buf (o outro buffer).
+  Assim todos os mallocs têm exatamente um free correspondente — sem leak.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RESUMO DE ORIGENS DOS CÓDIGOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Questão | Arquivo                  | Origem
+--------|--------------------------|----------------------------------------------
+Q1      | mpi_trap_q1.c            | MODIFICAÇÃO de mpi_trap1.c (IPP §3.2.2)
+Q2      | mpi_output_q2.c          | MODIFICAÇÃO de mpi_output.c (IPP §3.3.1)
+Q3      | resposta.txt             | TEÓRICA (sem código)
+Q4      | mpi_vec_q4.c             | NOVO (inspirado em mpi_vector_add.c IPP §3.4.6)
+Q5      | mpi_prefix_q5.c          | NOVO
+Q6      | mpi_ring_q6.c            | NOVO (baseado no pseudocódigo do enunciado)
+Q7      | mpi_vec_q7.c             | MODIFICAÇÃO da Q4
+Q8      | resposta.txt             | TEÓRICA / DIAGRAMA (sem código)
+Q9      | mpi_vec_q9.c             | MODIFICAÇÃO de mpi_vector_add.c (IPP §3.4.6)
+Q10     | mpi_upper_q10.c          | NOVO
+Q11     | mpi_trap_q11.c           | MODIFICAÇÃO de mpi_trap3.c (IPP — Get_input)
+Q12     | mpi_trap_q12.c           | NOVO com timing (baseado em mpi_trap4.c IPP)
+Q13     | slurm_q13.sh             | USA mpi_odd_even.c SEM MODIFICAÇÃO (IPP ch3/)
+Q14     | mpi_odd_even_q14.c       | MODIFICAÇÃO de mpi_odd_even.c (IPP ch3/)
+
+Referência: PACHECO, Peter S. An Introduction to Parallel Programming.
+            Morgan Kaufmann, 2011. ISBN: 9780123742605.
+            Código fonte original: ipp-source/ipp-source-use/ch3/
