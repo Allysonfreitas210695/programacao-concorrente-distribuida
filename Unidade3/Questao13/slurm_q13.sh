@@ -13,8 +13,7 @@
 
 module load openmpi/gnu/4.1.1
 
-# Copia o código fonte do diretório do livro e compila
-cp ../../../ipp-source/ipp-source-use/ch3/mpi_odd_even.c .
+# Compila o código fonte (já presente neste diretório)
 mpicc -O2 -o mpi_odd_even mpi_odd_even.c
 
 # n = 24000: divisível por 1,2,4,8,16,24,48,96
