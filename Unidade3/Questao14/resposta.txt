@@ -40,3 +40,17 @@ Análise com p=8 fixo e n variando:
 
 Nota: o gerenciamento dos ponteiros fica mais complexo (dois buffers pool),
 e deve-se garantir que o buffer correto seja liberado ao final.
+
+------------------------------------------------------------------------
+Compilação e Execução
+------------------------------------------------------------------------
+Compilar:
+    mpicc -g -Wall -o mpi_odd_even_q14 mpi_odd_even_q14.c
+
+Executar (n como argumento de linha de comando):
+    mpiexec -n 4 ./mpi_odd_even_q14 16
+    mpiexec -n 8 ./mpi_odd_even_q14 64
+
+  Para comparar desempenho com a versão original (Q13):
+    time mpiexec -n 8 ./mpi_odd_even    100000
+    time mpiexec -n 8 ./mpi_odd_even_q14 100000

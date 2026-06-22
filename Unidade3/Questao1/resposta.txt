@@ -33,3 +33,17 @@ Trecho mais importante da modificação (em main):
         local_a = a + (my_rank * base_n + remainder) * h;
     }
     local_b = local_a + local_n * h;
+
+------------------------------------------------------------------------
+Compilação e Execução
+------------------------------------------------------------------------
+Compilar:
+    mpicc -g -Wall -o mpi_trap_q1 mpi_trap_q1.c
+
+Executar (exemplo com 4 processos):
+    mpiexec -n 4 ./mpi_trap_q1
+
+  Quando solicitado, forneça os valores via stdin:
+    a (limite inferior):  0.0
+    b (limite superior):  1.0
+    n (número de trapézios): 1024

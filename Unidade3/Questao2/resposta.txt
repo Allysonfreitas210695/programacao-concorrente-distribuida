@@ -25,3 +25,18 @@ Trecho mais importante:
 
 Nota: o fflush(stdout) é essencial para garantir que a saída seja visível
 antes de passar o token.
+
+------------------------------------------------------------------------
+Compilação e Execução
+------------------------------------------------------------------------
+Compilar:
+    mpicc -g -Wall -o mpi_output_q2 mpi_output_q2.c
+
+Executar (exemplo com 4 processos):
+    mpiexec -n 4 ./mpi_output_q2
+
+  Saída esperada (na ordem dos ranks):
+    Proc 0 de 4 > Does anyone have a toothpick?
+    Proc 1 de 4 > Does anyone have a toothpick?
+    Proc 2 de 4 > Does anyone have a toothpick?
+    Proc 3 de 4 > Does anyone have a toothpick?

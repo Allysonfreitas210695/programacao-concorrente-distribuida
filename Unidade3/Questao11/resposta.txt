@@ -53,3 +53,17 @@ void Get_input(int my_rank, int comm_sz, double* a_p, double* b_p, int* n_p) {
         MPI_Unpack(pack_buf, 100, &position, n_p, 1, MPI_INT,    MPI_COMM_WORLD);
     }
 }
+
+------------------------------------------------------------------------
+Compilação e Execução
+------------------------------------------------------------------------
+Compilar:
+    mpicc -g -Wall -o mpi_trap_q11 mpi_trap_q11.c
+
+Executar (exemplo com 4 processos):
+    mpiexec -n 4 ./mpi_trap_q11
+
+  Quando solicitado (pelo processo 0), forneça os valores via stdin:
+    a (limite inferior):  0.0
+    b (limite superior):  1.0
+    n (número de trapézios): 1024

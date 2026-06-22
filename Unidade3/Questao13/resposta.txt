@@ -42,3 +42,20 @@ Conclusão: a ordenação ímpar-par NÃO é fracamente escalável para p grande
 
 Para n crescer suficientemente mais rápido que p (ex.: n = c*p^2), a
 escalabilidade fraca poderia ser mantida, mas isso limita o tamanho do problema.
+
+------------------------------------------------------------------------
+Compilação e Execução
+------------------------------------------------------------------------
+Compilar:
+    mpicc -g -Wall -o mpi_odd_even mpi_odd_even.c
+
+Executar (n como argumento de linha de comando):
+    mpiexec -n 4 ./mpi_odd_even 16
+    mpiexec -n 8 ./mpi_odd_even 64
+
+  O argumento <n> é o tamanho do vetor a ordenar.
+  Se omitido, o programa solicita os elementos via stdin.
+
+  Exemplo entrada manual (n=8, p=4):
+    8
+    5 3 8 1 9 2 7 4

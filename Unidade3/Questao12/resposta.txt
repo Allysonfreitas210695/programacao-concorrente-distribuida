@@ -56,3 +56,18 @@ Para n pequeno, a comunicação domina e a eficiência cai rapidamente → não 
 
 Conclusão: a regra trapezoidal com MPI_Reduce é FORTEMENTE ESCALÁVEL
 para n >> p (cada processo tem muitos trapézios).
+
+------------------------------------------------------------------------
+Compilação e Execução
+------------------------------------------------------------------------
+Compilar:
+    mpicc -g -Wall -O2 -o mpi_trap_q12 mpi_trap_q12.c
+
+Executar (n como argumento de linha de comando):
+    mpiexec -n 1  ./mpi_trap_q12 1048576
+    mpiexec -n 2  ./mpi_trap_q12 1048576
+    mpiexec -n 4  ./mpi_trap_q12 1048576
+    mpiexec -n 8  ./mpi_trap_q12 1048576
+
+  O primeiro argumento <n> é o número de trapézios (padrão: 1048576).
+  O programa imprime o tempo de execução e o valor da integral calculada.

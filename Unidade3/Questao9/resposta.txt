@@ -79,3 +79,17 @@ void Print_vector(double local_b[], int local_n, int n, char title[],
 
     MPI_Type_free(&contig_type);
 }
+
+------------------------------------------------------------------------
+Compilação e Execução
+------------------------------------------------------------------------
+Compilar:
+    mpicc -g -Wall -o mpi_vec_q9 mpi_vec_q9.c
+
+Executar (exemplo com 4 processos):
+    mpiexec -n 4 ./mpi_vec_q9
+
+  Quando solicitado (pelo processo 0), forneça:
+    n (tamanho do vetor): 8
+    Componentes do vetor x: 1.0 2.0 3.0 4.0 5.0 6.0 7.0 8.0
+    Componentes do vetor y: 8.0 7.0 6.0 5.0 4.0 3.0 2.0 1.0
