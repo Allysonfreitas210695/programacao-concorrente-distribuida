@@ -43,14 +43,14 @@ int main(int argc, char* argv[]) {
     double cur = my_val;
     for (int half = 1; half < comm_sz; half <<= 1) {
         double received = 0.0;
-        /* Envia acumulador para o processo q+half */
-        if (my_rank + half < comm_sz)
-            MPI_Send(&cur, 1, MPI_DOUBLE, my_rank + half, 0, MPI_COMM_WORLD);
-        /* Recebe acumulador do processo q-half */
-        if (my_rank - half >= 0)
-            MPI_Recv(&received, 1, MPI_DOUBLE, my_rank - half, 0,
+        /* MPI_PROC_NULL descarta send/recv silenciosamente — evita deadlock */
+        int dest   = (my_rank + half < comm_sz) ? my_rank + half : MPI_PROC_NULL;
+        int source = (my_rank - half >= 0)      ? my_rank - half : MPI_PROC_NULL;
+        MPI_Sendrecv(&cur,      1, MPI_DOUBLE, dest,   0,
+                     &received, 1, MPI_DOUBLE, source, 0,
                      MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        cur += received;
+        if (source != MPI_PROC_NULL)
+            cur += received;
         MPI_Barrier(MPI_COMM_WORLD);
     }
     double prefix_val = cur;

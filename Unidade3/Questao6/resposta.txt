@@ -15,8 +15,20 @@ O código fornecido na questão:
     }
 
 Complexidade: O(p) mensagens ponto-a-ponto de tamanho fixo.
-Comparado ao borboleta (butterfly): O(log p) fases, porém com mensagens maiores.
-Para p grande: anel é mais lento em latência, mas simples de implementar.
+
+Comparação com Allreduce estruturado em borboleta:
+  - Anel:      p-1 fases, cada fase envia 1 valor   → custo: (p-1) × (latência + tamanho)
+  - Borboleta: log2(p) fases, mensagens crescem      → custo: log2(p) × (latência + tamanho)
+
+Exemplos com p = 4, 8, 16:
+  p=4:  anel=3 fases,  borboleta=2 fases
+  p=8:  anel=7 fases,  borboleta=3 fases
+  p=16: anel=15 fases, borboleta=4 fases
+
+Conclusão: para p pequeno a diferença é modesta, mas cresce rapidamente.
+A borboleta é assintoticamente superior (O(log p) vs O(p)) e é o que
+implementações como OpenMPI usam internamente em MPI_Allreduce.
+O anel é mais simples de implementar e suficiente para p pequeno.
 
 Código completo (a) - Allreduce via anel:
 ------------------------------------------

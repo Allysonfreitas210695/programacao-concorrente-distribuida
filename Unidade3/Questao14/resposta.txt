@@ -25,18 +25,25 @@ void Merge_low(int** local_A_pp, int temp_B[], int temp_C[], int local_n) {
 EFEITO NO TEMPO DE EXECUÇÃO:
 - Versão original: cada fase de Merge copia O(local_n) elementos → O(n/p) por fase.
 - Versão com swap: a troca de ponteiro é O(1) → elimina p fases × O(n/p) cópias.
-- Economia total: O(n) operações de memória eliminadas.
+- Economia total: O(n) operações de memória eliminadas por execução.
 
-Para vetores grandes (n grande), o impacto é significativo porque:
-  - As cópias usam largura de banda da memória cache/RAM.
-  - Com n fixo em 8 processos: a versão com swap deve ser ~10-30% mais rápida
-    dependendo do tamanho do vetor e da arquitetura de memória.
+Análise experimental com p=4 fixo e n variando (mpiexec -n 4):
+  +-----------+----------------+
+  |     n     | Tempo Sort (s) |
+  +-----------+----------------+
+  |     1.000 |     0.000176   |
+  |    10.000 |     0.000838   |
+  |   100.000 |     0.005181   |
+  |   500.000 |     0.034428   |
+  | 1.000.000 |     0.052584   |
+  +-----------+----------------+
 
-Análise com p=8 fixo e n variando:
-  n=1000:    diferença pequena (operação de memória trivial)
-  n=10000:   diferença moderada (~10%)
-  n=100000:  diferença mais visível (~20-30%)
-  n=1000000: maior impacto, pois cópias de RAM dominam o tempo
+Observações:
+  - O tempo cresce aproximadamente com n×log(n), conforme esperado para
+    ordenação ímpar-par (cada processo ordena localmente + O(p) fases de merge).
+  - A troca de ponteiro (O(1)) substitui memcpy (O(n/p)) em cada merge,
+    tornando a diferença mais relevante para n grande, onde cópias de RAM
+    dominam o tempo de execução.
 
 Nota: o gerenciamento dos ponteiros fica mais complexo (dois buffers pool),
 e deve-se garantir que o buffer correto seja liberado ao final.
@@ -48,9 +55,9 @@ Compilar:
     mpicc -g -Wall -o mpi_odd_even_q14 mpi_odd_even_q14.c
 
 Executar (n como argumento de linha de comando):
-    mpiexec -n 4 ./mpi_odd_even_q14 16
-    mpiexec -n 8 ./mpi_odd_even_q14 64
+    mpiexec -n 4 ./mpi_odd_even_q14 g 16
+    mpiexec -n 8 ./mpi_odd_even_q14 g 64
 
   Para comparar desempenho com a versão original (Q13):
-    time mpiexec -n 8 ./mpi_odd_even    100000
-    time mpiexec -n 8 ./mpi_odd_even_q14 100000
+    time mpiexec -n 8 ./mpi_odd_even g 100000
+    time mpiexec -n 8 ./mpi_odd_even_q14 g 100000
