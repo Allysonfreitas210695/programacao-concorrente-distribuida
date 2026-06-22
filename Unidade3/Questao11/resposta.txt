@@ -28,3 +28,28 @@ Outros processos - desempacota na mesma ordem:
 
 A variável 'position' é automaticamente atualizada a cada chamada para
 apontar para o próximo slot disponível no buffer.
+
+Código Get_input:
+------------------
+void Get_input(int my_rank, int comm_sz, double* a_p, double* b_p, int* n_p) {
+    char pack_buf[100];
+    int position = 0;
+
+    if (my_rank == 0) {
+        printf("Entre com a, b e n:\n");
+        scanf("%lf %lf %d", a_p, b_p, n_p);
+
+        MPI_Pack(a_p, 1, MPI_DOUBLE, pack_buf, 100, &position, MPI_COMM_WORLD);
+        MPI_Pack(b_p, 1, MPI_DOUBLE, pack_buf, 100, &position, MPI_COMM_WORLD);
+        MPI_Pack(n_p, 1, MPI_INT,    pack_buf, 100, &position, MPI_COMM_WORLD);
+    }
+
+    MPI_Bcast(pack_buf, 100, MPI_PACKED, 0, MPI_COMM_WORLD);
+
+    if (my_rank != 0) {
+        position = 0;
+        MPI_Unpack(pack_buf, 100, &position, a_p, 1, MPI_DOUBLE, MPI_COMM_WORLD);
+        MPI_Unpack(pack_buf, 100, &position, b_p, 1, MPI_DOUBLE, MPI_COMM_WORLD);
+        MPI_Unpack(pack_buf, 100, &position, n_p, 1, MPI_INT,    MPI_COMM_WORLD);
+    }
+}

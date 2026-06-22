@@ -22,5 +22,60 @@ Equivalência:
   MPI_Scatter(a, 1, contig_type, ...) 
   ≡ MPI_Scatter(a, local_n, MPI_DOUBLE, ...)
 
-A vantagem de usar tipos derivados é que o código fica mais expressivo e 
+A vantagem de usar tipos derivados é que o código fica mais expressivo e
 facilita generalizações para tipos mais complexos.
+
+Read_vector:
+-------------
+void Read_vector(double local_a[], int local_n, int n, char vec_name[],
+                 int my_rank, MPI_Comm comm) {
+    double* a = NULL;
+    int local_ok = 1;
+
+    MPI_Datatype contig_type;
+    MPI_Type_contiguous(local_n, MPI_DOUBLE, &contig_type);
+    MPI_Type_commit(&contig_type);
+
+    if (my_rank == 0) {
+        a = malloc(n * sizeof(double));
+        if (a == NULL) local_ok = 0;
+        Check_for_error(local_ok, "Read_vector", "malloc falhou", comm);
+        printf("Entre com o vetor %s\n", vec_name);
+        for (int i = 0; i < n; i++) scanf("%lf", &a[i]);
+        MPI_Scatter(a, 1, contig_type, local_a, 1, contig_type, 0, comm);
+        free(a);
+    } else {
+        Check_for_error(local_ok, "Read_vector", "malloc falhou", comm);
+        MPI_Scatter(a, 1, contig_type, local_a, 1, contig_type, 0, comm);
+    }
+
+    MPI_Type_free(&contig_type);
+}
+
+Print_vector:
+--------------
+void Print_vector(double local_b[], int local_n, int n, char title[],
+                  int my_rank, MPI_Comm comm) {
+    double* b = NULL;
+    int local_ok = 1;
+
+    MPI_Datatype contig_type;
+    MPI_Type_contiguous(local_n, MPI_DOUBLE, &contig_type);
+    MPI_Type_commit(&contig_type);
+
+    if (my_rank == 0) {
+        b = malloc(n * sizeof(double));
+        if (b == NULL) local_ok = 0;
+        Check_for_error(local_ok, "Print_vector", "malloc falhou", comm);
+        MPI_Gather(local_b, 1, contig_type, b, 1, contig_type, 0, comm);
+        printf("%s\n", title);
+        for (int i = 0; i < n; i++) printf("%f ", b[i]);
+        printf("\n");
+        free(b);
+    } else {
+        Check_for_error(local_ok, "Print_vector", "malloc falhou", comm);
+        MPI_Gather(local_b, 1, contig_type, b, 1, contig_type, 0, comm);
+    }
+
+    MPI_Type_free(&contig_type);
+}

@@ -18,6 +18,51 @@ Complexidade: O(p) mensagens ponto-a-ponto de tamanho fixo.
 Comparado ao borboleta (butterfly): O(log p) fases, porém com mensagens maiores.
 Para p grande: anel é mais lento em latência, mas simples de implementar.
 
+Código completo (a) - Allreduce via anel:
+------------------------------------------
+/*
+ * Compile: mpicc -g -Wall -o mpi_ring_a mpi_ring_a.c
+ * Run:     mpiexec -n <p> ./mpi_ring_a
+ */
+#include <stdio.h>
+#include <stdlib.h>
+#include <mpi.h>
+
+int main(int argc, char* argv[]) {
+    int my_rank, comm_sz;
+    MPI_Status status;
+
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &comm_sz);
+
+    srand(my_rank + 10);
+    int my_val = rand() % 20;
+
+    int dest    = (my_rank + 1) % comm_sz;
+    int source  = (my_rank - 1 + comm_sz) % comm_sz;
+    int sendtag = 0, recvtag = 0;
+
+    /* Allreduce via anel: passa temp_val p-1 vezes pelo anel,
+     * acumulando em sum. Após p-1 iterações, sum = x[0]+...+x[p-1]. */
+    int sum = my_val;
+    int temp_val = my_val;
+
+    for (int i = 1; i < comm_sz; i++) {
+        MPI_Sendrecv_replace(&temp_val, 1, MPI_INT,
+                             dest,   sendtag,
+                             source, recvtag,
+                             MPI_COMM_WORLD, &status);
+        sum += temp_val;
+    }
+
+    printf("Proc %d: my_val=%d  sum=%d\n", my_rank, my_val, sum);
+    fflush(stdout);
+
+    MPI_Finalize();
+    return 0;
+}
+
 (b) Prefix Sum via anel
 ------------------------
 Adapta o anel para acumular apenas os valores de processos com rank < meu_rank.
@@ -34,3 +79,51 @@ Trecho mais importante:
     }
 
 Após p-1 rodadas, prefix contém x[0]+x[1]+...+x[my_rank].
+
+Código completo (b) - Prefix Sum via anel:
+-------------------------------------------
+/*
+ * Compile: mpicc -g -Wall -o mpi_ring_b mpi_ring_b.c
+ * Run:     mpiexec -n <p> ./mpi_ring_b
+ */
+#include <stdio.h>
+#include <stdlib.h>
+#include <mpi.h>
+
+int main(int argc, char* argv[]) {
+    int my_rank, comm_sz;
+    MPI_Status status;
+
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &comm_sz);
+
+    srand(my_rank + 10);
+    int my_val = rand() % 20;
+
+    int dest    = (my_rank + 1) % comm_sz;
+    int source  = (my_rank - 1 + comm_sz) % comm_sz;
+    int sendtag = 0, recvtag = 0;
+
+    /* Prefix sum via anel: na iteração i, temp_val contém o valor
+     * originado do processo (my_rank - i) mod p.
+     * Acumula apenas se esse processo tem rank < my_rank. */
+    int temp_val = my_val;
+    int prefix   = my_val;
+
+    for (int i = 1; i < comm_sz; i++) {
+        MPI_Sendrecv_replace(&temp_val, 1, MPI_INT,
+                             dest,   sendtag,
+                             source, recvtag,
+                             MPI_COMM_WORLD, &status);
+        int sender_rank = (my_rank - i + comm_sz) % comm_sz;
+        if (sender_rank < my_rank)
+            prefix += temp_val;
+    }
+
+    printf("Proc %d: my_val=%d  prefix_sum=%d\n", my_rank, my_val, prefix);
+    fflush(stdout);
+
+    MPI_Finalize();
+    return 0;
+}

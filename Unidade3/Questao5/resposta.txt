@@ -29,9 +29,116 @@ Pseudocódigo:
 
 Total de fases de comunicação: log2(n) ✓
 
+Código completo (b) - sem MPI_Scan:
+-------------------------------------
+/*
+ * Compile: mpicc -g -Wall -o mpi_prefix_b mpi_prefix_b.c
+ * Run:     mpiexec -n <p> ./mpi_prefix_b   (p deve ser potência de 2)
+ */
+#include <stdio.h>
+#include <stdlib.h>
+#include <mpi.h>
+
+int main(int argc, char* argv[]) {
+    int my_rank, comm_sz;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &comm_sz);
+
+    /* Cada processo gera um valor (semente diferente por rank) */
+    srand(my_rank + 42);
+    double my_val = (double)(rand() % 100);
+
+    /*
+     * Algoritmo de varredura em log2(p) fases.
+     * Fase 'half': processo q envia seu acumulador para q+half
+     *              e recebe de q-half (se existir).
+     * Após log2(p) fases, processo q contém x[0]+...+x[q].
+     */
+    double cur = my_val;
+    for (int half = 1; half < comm_sz; half <<= 1) {
+        double received = 0.0;
+        if (my_rank + half < comm_sz)
+            MPI_Send(&cur, 1, MPI_DOUBLE, my_rank + half, 0, MPI_COMM_WORLD);
+        if (my_rank - half >= 0)
+            MPI_Recv(&received, 1, MPI_DOUBLE, my_rank - half, 0,
+                     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        cur += received;
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+
+    /* Impressão ordenada por rank (token ring) */
+    if (my_rank == 0) {
+        printf("Proc %d: valor=%.0f  prefix_sum=%.0f\n", my_rank, my_val, cur);
+        fflush(stdout);
+        if (comm_sz > 1) {
+            int token = 1;
+            MPI_Send(&token, 1, MPI_INT, 1, 99, MPI_COMM_WORLD);
+        }
+    } else {
+        int token;
+        MPI_Recv(&token, 1, MPI_INT, my_rank - 1, 99,
+                 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        printf("Proc %d: valor=%.0f  prefix_sum=%.0f\n", my_rank, my_val, cur);
+        fflush(stdout);
+        if (my_rank < comm_sz - 1)
+            MPI_Send(&token, 1, MPI_INT, my_rank + 1, 99, MPI_COMM_WORLD);
+    }
+
+    MPI_Finalize();
+    return 0;
+}
+
 (c) Com MPI_Scan
 -----------------
 MPI_Scan(&my_val, &scan_result, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
 O processo q recebe em scan_result a soma x[0]+x[1]+...+x[q].
 Internamente o MPI pode usar a mesma estrutura de árvore do item (b).
+
+Código completo (c) - com MPI_Scan:
+-------------------------------------
+/*
+ * Compile: mpicc -g -Wall -o mpi_prefix_c mpi_prefix_c.c
+ * Run:     mpiexec -n <p> ./mpi_prefix_c
+ */
+#include <stdio.h>
+#include <stdlib.h>
+#include <mpi.h>
+
+int main(int argc, char* argv[]) {
+    int my_rank, comm_sz;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &comm_sz);
+
+    /* Cada processo gera um valor (semente diferente por rank) */
+    srand(my_rank + 42);
+    double my_val = (double)(rand() % 100);
+
+    /* MPI_Scan calcula a soma de prefixo inclusiva:
+     * processo q recebe x[0]+x[1]+...+x[q] em scan_result */
+    double scan_result;
+    MPI_Scan(&my_val, &scan_result, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+    /* Impressão ordenada por rank (token ring) */
+    if (my_rank == 0) {
+        printf("Proc %d: valor=%.0f  prefix_sum=%.0f\n", my_rank, my_val, scan_result);
+        fflush(stdout);
+        if (comm_sz > 1) {
+            int token = 1;
+            MPI_Send(&token, 1, MPI_INT, 1, 99, MPI_COMM_WORLD);
+        }
+    } else {
+        int token;
+        MPI_Recv(&token, 1, MPI_INT, my_rank - 1, 99,
+                 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        printf("Proc %d: valor=%.0f  prefix_sum=%.0f\n", my_rank, my_val, scan_result);
+        fflush(stdout);
+        if (my_rank < comm_sz - 1)
+            MPI_Send(&token, 1, MPI_INT, my_rank + 1, 99, MPI_COMM_WORLD);
+    }
+
+    MPI_Finalize();
+    return 0;
+}
