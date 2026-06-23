@@ -9,7 +9,7 @@
 #SBATCH --partition=sequana_cpu_dev
 #SBATCH --nodes=4
 #SBATCH --ntasks=96
-#SBATCH --time=00:30:00
+#SBATCH --time=00:20:00
 
 module load openmpi/gnu/4.1.1
 
@@ -21,13 +21,21 @@ mpicc -O2 -o mpi_trap_q12 mpi_trap_q12.c
 # Divisível por 1,2,4,8,16,24,48,96.
 N=1000000000
 
-echo "=== 1 nó, variando p ==="
-for P in 1 2 4 8 16 24; do
-    srun --nodes=1 --ntasks=$P ./mpi_trap_q12 $N
-done
+# Arquivo de saída com os resultados em texto
+RES=resultados_q12.txt
+{
+    echo "Resultados Questão 12 - Regra Trapezoidal (n=$N)"
+    echo "Job: $SLURM_JOB_ID   Data: $(date)"
+    echo "========================================================"
 
-echo "=== 2 nós completos (p=48) ==="
-srun --nodes=2 --ntasks=48 ./mpi_trap_q12 $N
+    echo "=== 1 nó, variando p ==="
+    for P in 1 2 4 8 16 24; do
+        srun --nodes=1 --ntasks=$P ./mpi_trap_q12 $N
+    done
 
-echo "=== 4 nós completos (p=96) ==="
-srun --nodes=4 --ntasks=96 ./mpi_trap_q12 $N
+    echo "=== 2 nós completos (p=48) ==="
+    srun --nodes=2 --ntasks=48 ./mpi_trap_q12 $N
+
+    echo "=== 4 nós completos (p=96) ==="
+    srun --nodes=4 --ntasks=96 ./mpi_trap_q12 $N
+} | tee "$RES"

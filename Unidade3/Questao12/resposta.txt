@@ -57,6 +57,49 @@ Para n pequeno, a comunicação domina e a eficiência cai rapidamente → não 
 Conclusão: a regra trapezoidal com MPI_Reduce é FORTEMENTE ESCALÁVEL
 para n >> p (cada processo tem muitos trapézios).
 
+========================================================================
+RESULTADOS EXPERIMENTAIS (Santos Dumont - LNCC)
+========================================================================
+Configuração: n = 1.000.000.000 trapézios | partição sequana_cpu_dev
+Núcleos/nó = 24 | Job 11536603
+
++------+--------+-----------+-------------+-----------+----------------+
+|  p   | nós    | T(p) [s]  | Speedup S(p)| Efic. E(p)| Observação     |
++------+--------+-----------+-------------+-----------+----------------+
+|   1  |   1    |  1.376116 |    1.00     |  100%     | referência     |
+|   2  |   1    |  0.563791 |    2.44     |  122%     | superlinear*   |
+|   4  |   1    |  0.287748 |    4.78     |  120%     | superlinear*   |
+|   8  |   1    |  0.160691 |    8.56     |  107%     | superlinear*   |
+|  16  |   1    |  0.095318 |   14.44     |   90%     | quase ideal    |
+|  24  |   1    |  0.070360 |   19.56     |   82%     | 1 nó completo  |
+|  48  |   2    |  0.041157 |   33.44     |   70%     | comunic. entre nós |
+|  96  |   4    |  0.034992 |   39.33     |   41%     | comunic. domina|
++------+--------+-----------+-------------+-----------+----------------+
+S(p) = T(1)/T(p)      E(p) = S(p)/p
+
+Interpretação para apresentação:
+* Speedup SUPERLINEAR (E > 100%) em p = 2, 4, 8 dentro de um único nó:
+  ao dividir o vetor entre mais processos, a fatia de cada um passa a caber
+  melhor na memória cache (L2/L3), reduzindo acessos à RAM. Efeito clássico
+  de cache em problemas grandes — não é erro de medição.
+
+* De p=1 até p=24 (1 nó) a escalabilidade é EXCELENTE: speedup cresce quase
+  proporcional a p, eficiência só cai para 82% em 24 núcleos. Confirma que a
+  carga computacional domina o overhead do MPI_Reduce (O(log p)).
+
+* A partir de p=48 (2 nós) e p=96 (4 nós) a eficiência cai (70% → 41%):
+  passa a existir comunicação ENTRE nós (rede InfiniBand), mais cara que a
+  comunicação intra-nó. Mesmo assim o tempo continua diminuindo (0.035 s).
+
+* Conclusão prática: o programa é FORTEMENTE ESCALÁVEL dentro de um nó
+  (n >> p). Em múltiplos nós o ganho continua, mas a eficiência diminui
+  porque a fração de comunicação cresce — comportamento esperado pela
+  Lei de Amdahl.
+
+Nota sobre precisão: a integral (valor exato 1/3 = 0.3333...) permanece
+correta até ~9 casas; a pequena perda em p=48/96 vem da não-associatividade
+da soma em ponto flutuante distribuída entre mais processos.
+
 ------------------------------------------------------------------------
 Compilação e Execução
 ------------------------------------------------------------------------

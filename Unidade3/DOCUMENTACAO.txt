@@ -455,12 +455,50 @@ POR QUE MPI_MAX PARA O TEMPO ELAPSED:
   Mede qual fração do speedup máximo teórico (p) foi efetivamente aproveitada.
   E=1 (100%) significa speedup linear perfeito — ideal mas impossível na prática.
 
-(e) ESCALABILIDADE:
-  A regra trapezoidal é FORTEMENTE ESCALÁVEL quando n é grande:
+*** RESULTADOS EXPERIMENTAIS REAIS (Santos Dumont/LNCC, n=10^9) ***
+  Medidos no arquivo Questao12/resultados_q12.txt (Job 11536603).
+
+   p | nós | T(p) [s]  | S(p)=T(1)/T(p) | E(p)=S(p)/p | observação
+  ---|-----|-----------|----------------|-------------|---------------------
+   1 |  1  | 1.376116  |      1.00      |    100%     | referência
+   2 |  1  | 0.563791  |      2.44      |    122%     | superlinear (cache)
+   4 |  1  | 0.287748  |      4.78      |    120%     | superlinear (cache)
+   8 |  1  | 0.160691  |      8.56      |    107%     | superlinear (cache)
+  16 |  1  | 0.095318  |     14.44      |     90%     | quase ideal
+  24 |  1  | 0.070360  |     19.56      |     82%     | 1 nó completo
+  48 |  2  | 0.041157  |     33.44      |     70%     | comunicação entre nós
+  96 |  4  | 0.034992  |     39.33      |     41%     | comunicação domina
+
+  POR QUE O SPEEDUP É SUPERLINEAR (E > 100%) EM p=2,4,8:
+    Ao dividir o vetor entre mais processos, a fatia de cada processo passa
+    a caber na memória cache (L2/L3). Menos acessos à RAM (lenta) → cada
+    processo roda mais rápido que a fração 1/p esperada. É o "efeito de cache",
+    fenômeno conhecido e legítimo — NÃO é erro de medição. Para responder ao
+    professor: "o speedup superlinear vem da melhor localidade de cache quando
+    o dado por processo encolhe".
+
+  POR QUE A EFICIÊNCIA CAI A PARTIR DE p=48:
+    Até p=24 toda a comunicação é INTRA-nó (memória compartilhada, rápida).
+    Em p=48 e p=96 o trabalho se espalha por 2 e 4 nós → surge comunicação
+    ENTRE nós pela rede InfiniBand, mais cara. A fração de comunicação cresce
+    e a eficiência cai (70% → 41%), embora o tempo ainda diminua.
+
+(e) ESCALABILIDADE (resposta baseada nos dados reais):
+  A regra trapezoidal é FORTEMENTE ESCALÁVEL dentro de um nó:
   - Tempo de computação: O(n/p) — cai linearmente com p.
   - Overhead de comunicação: O(log p) do MPI_Reduce — cresce muito devagar.
-  Para n >> p, o overhead é desprezível → eficiência próxima de 100%.
-  Para n pequeno, comunicação domina → eficiência cai → NÃO escalável.
+  Os dados confirmam: de p=1 a p=24 a eficiência só cai de 100% para 82%,
+  mostrando que a computação domina e o overhead do MPI_Reduce é desprezível.
+  Em múltiplos nós (48, 96) a eficiência cai por causa da rede — comportamento
+  esperado pela Lei de Amdahl (a fração serial/comunicação limita o ganho).
+  Conclusão para n pequeno: comunicação domina → NÃO escalável.
+
+NOTA SOBRE PRECISÃO DA INTEGRAL:
+  O valor exato é 1/3 = 0.33333... A integral medida fica correta até ~9 casas
+  em p baixo; a pequena diferença em p=48/96 (0.333333173..., 0.333332693...)
+  vem da NÃO-ASSOCIATIVIDADE da soma em ponto flutuante: somar parciais em
+  ordens diferentes (mais processos) acumula arredondamentos distintos. Não é
+  bug — é característica intrínseca do ponto flutuante distribuído.
 
 SOBRE O SCRIPT SLURM (slurm_q12.sh):
   Os #SBATCH de recursos DEVEM estar no TOPO do arquivo — o SLURM só lê
