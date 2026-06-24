@@ -1,61 +1,110 @@
 Questão 13 - Speedup e Eficiência da Ordenação Ímpar-Par
 =========================================================
+Plataforma: Santos Dumont (LNCC) — nós Sequana (24 cores/nó)
+Job: 11537481 | Data: 24/06/2026 | n = 24000
 
+------------------------------------------------------------------------
+DADOS EXPERIMENTAIS
+------------------------------------------------------------------------
+
+Tabela 1 — Tempos de execução, Speedup e Eficiência (n=24000)
++------+-------+------------+---------+------------+--------------------+
+|  p   | Nós   | T(p) (s)   |  S(p)   |   E(p)     | Observação         |
++------+-------+------------+---------+------------+--------------------+
+|    1 |   1   | 0.001807   |  1.000  |  1.000     | referência serial  |
+|    2 |   1   | 0.001739   |  1.039  |  0.520     | sublinear          |
+|    4 |   1   | 0.000575   |  3.143  |  0.786     | melhor eficiência  |
+|    8 |   1   | 0.000369   |  4.898  |  0.612     | sublinear          |
+|   16 |   1   | 0.000389   |  4.645  |  0.290     | queda de desempenho|
+|   24 |   1   | 0.000268   |  6.742  |  0.281     | intra-nó, sublinear|
+|   48 |   2   | 0.003761   |  0.480  |  0.010     | mais lento que p=1 |
+|   96 |   4   | 0.029340   |  0.062  |  0.001     | dominado por comun.|
++------+-------+------------+---------+------------+--------------------+
+
+S(p) = T(1)/T(p) = 0.001807 / T(p)
+E(p) = S(p) / p
+
+------------------------------------------------------------------------
 (a) O programa obtém speedups lineares?
------------------------------------------
-NÃO, em geral. A ordenação ímpar-par paralela executa p fases, cada fase com
-comunicação entre vizinhos. O overhead cresce com p.
+------------------------------------------------------------------------
+Não. Os resultados mostram speedups sempre abaixo do ideal.
 
-Speedup teórico máximo (Lei de Amdahl + overhead de comunicação):
-  T_serial(n) = O(n^2)  (bubble sort serial)
-  T_paralelo(n,p) = O(n^2/p) + O(n * p)  (computação + comunicação)
+Com processos no mesmo nó (p ≤ 24), o melhor resultado foi S=6.74 com
+p=24, longe do ideal S=24. Isso acontece porque o algoritmo faz p rodadas
+de troca de dados entre processos vizinhos — quanto mais processos, mais
+comunicação, e menos tempo sobra para computar.
 
-Para n grande e p pequeno → speedup próximo a linear.
-Para p grande → comunicação domina → speedup sublinear.
+Com múltiplos nós (p=48 e p=96), o programa ficou mais lento do que
+rodando com p=1. Com p=96 e n=24000, cada processo fica com apenas 250
+elementos, mas ainda precisa participar de 96 trocas via rede. A
+comunicação entre nós dominou completamente o tempo de execução.
 
+------------------------------------------------------------------------
 (b) É escalável?
------------------
-Depende. Se aumentarmos n proporcionalmente a p (escalabilidade fraca),
-a eficiência pode se manter. Veja itens (c) e (d).
+------------------------------------------------------------------------
+Apenas parcialmente, e somente intra-nó com p ≤ 8.
+A eficiência cai de 100% (p=1) para 28% (p=24) e colapsa para <1%
+em configuração multi-nó. O algoritmo não escala bem para n pequeno.
 
+------------------------------------------------------------------------
 (c) É FORTEMENTE escalável?
------------------------------
+------------------------------------------------------------------------
 NÃO. Escalabilidade forte = manter eficiência com n fixo e p crescendo.
-O overhead de comunicação O(n*p) cresce com p enquanto n permanece fixo,
-fazendo a eficiência cair significativamente.
-Exemplos esperados (n=24000):
-  p=1:  S=1.0,  E=1.00
-  p=2:  S=1.8,  E=0.90
-  p=4:  S=3.2,  E=0.80
-  p=8:  S=5.5,  E=0.69
-  p=16: S=8.0,  E=0.50
-  p=24: S=9.5,  E=0.40
 
+Resultados experimentais (n=24000 fixo):
+  p=1  → E=1.000
+  p=2  → E=0.520  (caiu 48%)
+  p=4  → E=0.786
+  p=8  → E=0.612
+  p=16 → E=0.290
+  p=24 → E=0.281
+  p=48 → E=0.010  (colapso multi-nó)
+  p=96 → E=0.001
+
+A eficiência cai monotonicamente (salvo flutuação em p=4 vs p=2) e
+despenca para quase zero com múltiplos nós. A causa é estrutural:
+o algoritmo executa p fases, cada uma com uma comunicação MPI_Sendrecv,
+portanto o overhead de comunicação é O(n·p) — cresce linearmente com p.
+
+Conclusão: NÃO é fortemente escalável.
+
+------------------------------------------------------------------------
 (d) É FRACAMENTE escalável?
------------------------------
-POSSIVELMENTE SIM, se n for aumentado proporcionalmente a p.
-Escalabilidade fraca: eficiência se mantém quando n/p = constante.
-Para a ordenação ímpar-par, se n = c*p:
-  T_paralelo = O(c*p)^2/p + O(c*p * p) = O(c^2*p) + O(c*p^2)
-O segundo termo cresce com p^2, então a eficiência fraca também cai.
-Conclusão: a ordenação ímpar-par NÃO é fracamente escalável para p grande.
+------------------------------------------------------------------------
+Não. Na escalabilidade fraca, aumentamos n junto com p para manter a
+mesma carga por processo (n/p constante). O problema é que o algoritmo
+faz p rodadas de comunicação — e p também está crescendo. Então o
+overhead de comunicação aumenta mais rápido do que o trabalho útil,
+derrubando a eficiência mesmo com n maior.
 
-Para n crescer suficientemente mais rápido que p (ex.: n = c*p^2), a
-escalabilidade fraca poderia ser mantida, mas isso limita o tamanho do problema.
+Na prática: dobrar p e dobrar n não mantém a eficiência, porque a
+quantidade de trocas entre processos dobra junto com p.
+
+Conclusão: Não é fracamente escalável.
+
+------------------------------------------------------------------------
+RESUMO
+------------------------------------------------------------------------
++---------------------------+----------+
+| Propriedade               | Resultado|
++---------------------------+----------+
+| Speedup linear            | NÃO      |
+| Escalável (geral)         | NÃO      |
+| Fortemente escalável      | NÃO      |
+| Fracamente escalável      | NÃO      |
++---------------------------+----------+
+
+O algoritmo de ordenação ímpar-par é adequado apenas para p pequeno
+(≤ 8) com n suficientemente grande (n >> p²). Para n=24000, o problema
+é pequeno demais para amortizar os custos de comunicação além de p=8.
 
 ------------------------------------------------------------------------
 Compilação e Execução
 ------------------------------------------------------------------------
-Compilar:
-    mpicc -g -Wall -o mpi_odd_even mpi_odd_even.c
+# Versão com temporização (usada nos testes):
+mpicc -O2 -o mpi_odd_even_timing mpi_odd_even_timing.c
+mpiexec -n 4 ./mpi_odd_even_timing 24000
 
-Executar (n como argumento de linha de comando):
-    mpiexec -n 4 ./mpi_odd_even 16
-    mpiexec -n 8 ./mpi_odd_even 64
-
-  O argumento <n> é o tamanho do vetor a ordenar.
-  Se omitido, o programa solicita os elementos via stdin.
-
-  Exemplo entrada manual (n=8, p=4):
-    8
-    5 3 8 1 9 2 7 4
+# Versão original do livro:
+mpicc -g -Wall -o mpi_odd_even mpi_odd_even.c
+mpiexec -n 4 ./mpi_odd_even g 24000

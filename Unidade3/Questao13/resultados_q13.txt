@@ -1,0 +1,14 @@
+Resultados Questão 13 - Ordenação Ímpar-Par (n=24000)
+Job: 11537481   Data: qua jun 24 08:54:43 -03 2026
+========================================================
+=== 1 nó, variando p ===
+p=1  n=24000  tempo=0.001807 s
+p=2  n=24000  tempo=0.001739 s
+p=4  n=24000  tempo=0.000575 s
+p=8  n=24000  tempo=0.000369 s
+p=16  n=24000  tempo=0.000389 s
+p=24  n=24000  tempo=0.000268 s
+=== 2 nós completos (p=48) ===
+p=48  n=24000  tempo=0.003761 s
+=== 4 nós completos (p=96) ===
+p=96  n=24000  tempo=0.029340 s
